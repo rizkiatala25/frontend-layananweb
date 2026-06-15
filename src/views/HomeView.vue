@@ -7,7 +7,7 @@
       </div>
       <div class="nav-links">
         <a href="#" class="nav-link">Enter code</a>
-        <button class="btn-signup">SignUp</button>
+        <button @click="$emit('navigate-to-signup')" class="btn-signup">SignUp</button>
       </div>
     </header>
 
@@ -41,7 +41,10 @@
 </template>
 
 <script setup>
-// Belum butuh logika logic rumit, fokus ke tampilan dulu
+import { defineEmits } from 'vue';
+
+// Perbaikan: Mendaftarkan event agar template bisa mengirim sinyal keluar ke App.vue
+defineEmits(['navigate-to-signup']);
 </script>
 
 <style scoped>
@@ -82,7 +85,7 @@
 
 .logo-text {
   font-size: 1.5rem;
-  font-weight: Regular;
+  font-weight: normal;
   letter-spacing: 2px;
   color: #7971ea;
 }
@@ -126,8 +129,6 @@
   justify-content: center;
   align-items: center;
   position: relative;
-  
-  
 }
 
 .hero-section {
@@ -137,14 +138,13 @@
 
 .big-logo {
   font-size: 5.5rem;
-  font-weight: Regular;
+  font-weight: normal;
   letter-spacing: 4px;
   margin-bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  
 }
 
 .brain-emoji {
@@ -169,7 +169,7 @@
 .button-group {
   display: flex;
   justify-content: center;
-  gap: 5px;
+  gap: 15px; /* Sedikit diperlebar jaraknya agar lebih rapi */
 }
 
 .btn-login {
