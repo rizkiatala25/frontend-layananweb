@@ -1,5 +1,5 @@
 <template>
-  <div class="signup-wrapper">
+  <div class="login-wrapper">
     <header class="app-header">
       <div class="logo-group">
         <div class="logo-circle"></div>
@@ -12,37 +12,26 @@
       <div class="curve-right"></div>
     </div>
 
-    <main class="signup-main">
-      <div class="signup-card">
+    <main class="login-main">
+      <div class="login-card">
         <div class="card-logo-center">
           <div class="logo-circle-small"></div>
           <span class="app-title-card">ZONEQUIZZZ</span>
         </div>
 
-        <h1 class="form-title">Sign Up</h1>
+        <h1 class="form-title">Login</h1>
 
-        <!-- Error Message -->
+        <div class="role-indicator">
+          <span class="role-badge" :class="role">
+            {{ role === 'teacher' ? '👨‍🏫 Teacher' : '🎓 Student' }}
+          </span>
+        </div>
+
         <div v-if="errorMessage" class="error-message">
           {{ errorMessage }}
         </div>
 
-        <!-- Success Message -->
-        <div v-if="successMessage" class="success-message">
-          {{ successMessage }}
-        </div>
-
-        <form @submit.prevent="handleSignUp">
-          <div class="input-group">
-            <label for="fullName">Full Name</label>
-            <input 
-              type="text" 
-              id="fullName" 
-              v-model="formData.full_name" 
-              placeholder="Full Name" 
-              required
-            />
-          </div>
-
+        <form @submit.prevent="handleLogin">
           <div class="input-group">
             <label for="username">Username</label>
             <input 
@@ -63,19 +52,17 @@
                 v-model="formData.password" 
                 placeholder="Password" 
                 required
-                minlength="6"
               />
               <button 
                 type="button" 
                 class="toggle-visibility" 
                 @click="passwordVisible = !passwordVisible"
-                aria-label="Toggle Password Visibility"
               >
-                <svg v-if="passwordVisible" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg v-if="passwordVisible" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
-                <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
                   <line x1="1" y1="1" x2="23" y2="23"></line>
                 </svg>
@@ -83,43 +70,20 @@
             </div>
           </div>
 
-          <div class="input-group">
-            <label for="confirmPassword">Confirm Password</label>
-            <div class="password-wrapper">
-              <input 
-                :type="confirmPasswordVisible ? 'text' : 'password'" 
-                id="confirmPassword" 
-                v-model="formData.confirm_password" 
-                placeholder="Confirm Password" 
-                required
-              />
-              <button 
-                type="button" 
-                class="toggle-visibility" 
-                @click="confirmPasswordVisible = !confirmPasswordVisible"
-                aria-label="Toggle Confirm Password Visibility"
-              >
-                <svg v-if="confirmPasswordVisible" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-                <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                  <line x1="1" y1="1" x2="23" y2="23"></line>
-                </svg>
-              </button>
-            </div>
+          <div class="remember-me-group">
+            <input type="checkbox" id="rememberMe" v-model="formData.rememberMe" />
+            <label for="rememberMe">Ingat Password</label>
           </div>
 
-          <button type="submit" class="btn-signup" :disabled="loading">
-            {{ loading ? 'Memproses...' : 'Sign Up' }}
+          <button type="submit" class="btn-login-submit" :disabled="loading">
+            {{ loading ? 'Memproses...' : 'Login' }}
           </button>
         </form>
 
         <p class="footer-text">
-          Already have an account? 
-          <a href="#" @click.prevent="$emit('navigate-to-login', 'student')" class="login-link">
-            Login
+          New to ZoneQuizizz? 
+          <a href="#" @click.prevent="$emit('navigate-to-signup')" class="signup-link">
+            Sign up for free account
           </a>
         </p>
       </div>
@@ -131,70 +95,68 @@
 import { useAuthStore } from '@/stores/authStore.js';
 
 export default {
-  name: 'SignUpView',
-  emits: ['navigate-to-quiz', 'navigate-to-login'],
+  name: 'LoginView',
+  props: {
+    initialRole: {
+      type: String,
+      default: 'student'
+    }
+  },
+  emits: ['navigate-to-quiz', 'navigate-to-signup', 'navigate-to-home'],
   data() {
     return {
+      role: this.initialRole || 'student',
       formData: {
-        full_name: '',
         username: '',
         password: '',
-        confirm_password: '',
+        rememberMe: false
       },
       passwordVisible: false,
-      confirmPasswordVisible: false,
       loading: false,
-      errorMessage: '',
-      successMessage: ''
+      errorMessage: ''
     };
   },
+  watch: {
+    initialRole(newRole) {
+      this.role = newRole;
+      console.log('📌 LoginView - role changed to:', newRole);
+    }
+  },
   methods: {
-    async handleSignUp() {
-      // Reset messages
-      this.errorMessage = '';
-      this.successMessage = '';
-
-      // Validasi password match
-      if (this.formData.password !== this.formData.confirm_password) {
-        this.errorMessage = "Konfirmasi password tidak cocok!";
-        return;
-      }
-
-      // Validasi password minimal 6 karakter
-      if (this.formData.password.length < 6) {
-        this.errorMessage = "Password minimal 6 karakter!";
-        return;
-      }
-
+    async handleLogin() {
       this.loading = true;
-
+      this.errorMessage = '';
+      
       try {
         const authStore = useAuthStore();
         
-        // Siapkan data untuk register - ROLE OTOMATIS STUDENT
-        const registerData = {
-          full_name: this.formData.full_name,
-          username: this.formData.username,
-          role: 'student',
-          password: this.formData.password
-        };
-
-        const result = await authStore.register(registerData);
-
+        console.log('📌 LoginView - attempting login with username:', this.formData.username);
+        
+        const result = await authStore.login(
+          this.formData.username,
+          this.formData.password
+        );
+        
+        console.log('📌 LoginView - login result:', result);
+        
         if (result.success) {
-          // Registrasi berhasil
-          this.successMessage = `Akun @${this.formData.username} berhasil dibuat!`;
+          // 🔥 AMBIL ROLE DARI STORE
+          const userRole = authStore.role;
+          console.log('📌 LoginView - role from store after login:', userRole);
           
-          // Tunggu sebentar lalu redirect
-          setTimeout(() => {
-            this.$emit('navigate-to-quiz');
-          }, 1500);
+          // 🔥 PASTIKAN ROLE TERSIMPAN
+          if (userRole) {
+            localStorage.setItem('user_role', userRole);
+          }
+          
+          // 🔥 REDIRECT
+          this.$emit('navigate-to-quiz');
         } else {
-          this.errorMessage = result.message || 'Registrasi gagal. Silakan coba lagi.';
+          this.errorMessage = result.message || 'Login gagal. Silakan cek username dan password Anda.';
         }
       } catch (error) {
-        console.error('Register error:', error);
-        this.errorMessage = error.response?.data?.message || 'Terjadi kesalahan. Silakan coba lagi.';
+        console.error('Login error:', error);
+        this.errorMessage = 'Terjadi kesalahan. Silakan coba lagi.';
       } finally {
         this.loading = false;
       }
@@ -206,7 +168,7 @@ export default {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
-.signup-wrapper {
+.login-wrapper {
   --primary-purple: #7468f3;
   --dark-background: #1a1c29;
   --light-card: #ffffff;
@@ -223,7 +185,6 @@ export default {
   box-sizing: border-box;
 }
 
-/* --- HEADER LOGO --- */
 .app-header {
   position: absolute;
   top: 40px;
@@ -251,7 +212,6 @@ export default {
   letter-spacing: 2px;
 }
 
-/* --- BACKGROUND CURVES --- */
 .background-decorations {
   position: absolute;
   width: 100%;
@@ -284,8 +244,7 @@ export default {
   transform: rotate(-25deg);
 }
 
-/* --- MAIN CARD --- */
-.signup-main {
+.login-main {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -295,7 +254,7 @@ export default {
   z-index: 2;
 }
 
-.signup-card {
+.login-card {
   background-color: var(--light-card);
   width: 100%;
   max-width: 440px;
@@ -331,14 +290,36 @@ export default {
   color: #333333;
   font-size: 24px;
   font-weight: 500;
-  margin-bottom: 25px;
+  margin-bottom: 8px;
   text-align: center;
   letter-spacing: 0.5px;
 }
 
-/* --- INPUTS --- */
+.role-indicator {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 6px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.role-badge.student {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.role-badge.teacher {
+  background: #fce7f3;
+  color: #be185d;
+}
+
 .input-group {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   text-align: left;
 }
 
@@ -392,8 +373,30 @@ export default {
   color: #7468f3;
 }
 
-/* --- BUTTON --- */
-.btn-signup {
+.remember-me-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 25px;
+  text-align: left;
+}
+
+.remember-me-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #7468f3;
+  border-radius: 4px;
+}
+
+.remember-me-group label {
+  font-size: 13px;
+  color: #555555;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-login-submit {
   width: 100%;
   background: linear-gradient(135deg, #7468f3 0%, #635bff 100%);
   color: white;
@@ -403,23 +406,22 @@ export default {
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  margin-top: 10px;
+  margin-top: 5px;
   transition: all 0.3s ease;
   font-family: 'Poppins', sans-serif;
 }
 
-.btn-signup:hover:not(:disabled) {
+.btn-login-submit:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(116, 104, 243, 0.3);
 }
 
-.btn-signup:disabled {
+.btn-login-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
 }
 
-/* --- MESSAGES --- */
 .error-message {
   background: #fee2e2;
   color: #dc2626;
@@ -430,17 +432,6 @@ export default {
   text-align: center;
 }
 
-.success-message {
-  background: #d1fae5;
-  color: #065f46;
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  font-size: 13px;
-  text-align: center;
-}
-
-/* --- FOOTER --- */
 .footer-text {
   margin-top: 20px;
   font-size: 13px;
@@ -448,7 +439,7 @@ export default {
   text-align: center;
 }
 
-.login-link {
+.signup-link {
   color: #7468f3;
   text-decoration: none;
   font-weight: 500;
@@ -456,12 +447,11 @@ export default {
   transition: color 0.2s ease;
 }
 
-.login-link:hover {
+.signup-link:hover {
   color: #635bff;
   text-decoration: underline;
 }
 
-/* --- RESPONSIVE --- */
 @media (max-width: 480px) {
   .app-header {
     top: 20px;
@@ -477,7 +467,7 @@ export default {
     height: 40px;
   }
   
-  .signup-card {
+  .login-card {
     padding: 30px 20px;
   }
   

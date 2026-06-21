@@ -24,11 +24,12 @@
         <p class="tagline-2">Challenge Your Mind, Own the Zone!</p>
 
         <div class="button-group">
-          <button class="btn-login teacher">
+          <button @click="$emit('navigate-to-login', 'teacher')" class="btn-login teacher">
             <span class="bold-text">Teacher</span>
             <span class="sub-text">Login</span>
           </button>
-          <button class="btn-login student">
+          
+          <button @click="$emit('navigate-to-login', 'student')" class="btn-login student">
             <span class="bold-text">Student</span>
             <span class="sub-text">Login</span>
           </button>
@@ -41,16 +42,13 @@
 </template>
 
 <script setup>
-import { defineEmits } from 'vue';
-
-// Perbaikan: Mendaftarkan event agar template bisa mengirim sinyal keluar ke App.vue
-defineEmits(['navigate-to-signup']);
+defineEmits(['navigate-to-signup', 'navigate-to-login']);
 </script>
 
 <style scoped>
 /* Reset dasar & warna background gelap sesuai gambar */
 .zonequiz-container {
-  background-color: #1a1c29; /* Gelap Navy Deep */
+  background-color: #1a1c29;
   min-height: 100vh;
   color: #ffffff;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -169,7 +167,7 @@ defineEmits(['navigate-to-signup']);
 .button-group {
   display: flex;
   justify-content: center;
-  gap: 15px; /* Sedikit diperlebar jaraknya agar lebih rapi */
+  gap: 15px; 
 }
 
 .btn-login {
@@ -211,7 +209,7 @@ defineEmits(['navigate-to-signup']);
   color: #1e293b;
 }
 
-/* BACKGROUND DECORATIVE LINES (Garis Lengkung di Belakang) */
+/* BACKGROUND DECORATIVE LINES */
 .bg-line {
   position: absolute;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -242,7 +240,7 @@ defineEmits(['navigate-to-signup']);
   width: 100%;
 }
 
-/* Animasi Otak Berdenyut Sedikit biar Keren */
+/* Animasi Otak Berdenyut */
 @keyframes pulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.05); }

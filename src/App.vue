@@ -1,74 +1,381 @@
 <template>
   <div id="app">
+    <!-- HOME PAGE -->
     <HomeView 
       v-if="currentPage === 'home'" 
       @navigate-to-signup="changePage('signup')" 
+      @navigate-to-login="handleLoginClick"
     />
 
+    <!-- SIGNUP PAGE -->
     <SignUpView 
       v-else-if="currentPage === 'signup'" 
-      @navigate-to-quiz="changePage('quiz')" 
+      @navigate-to-quiz="handleSignupSuccess"
+      @navigate-to-login="handleLoginClick"
     />
 
-    <div v-else-if="currentPage === 'quiz'" class="quiz-arena">
-      <div class="quiz-placeholder-card">
-        <h2>🎮 Selamat Datang di Arena Kuis ZONEQUIZZZ!</h2>
-        <p>Frontend siap digunakan. Tunggu temanmu menyelesaikan fungsi API Lumen ya!</p>
-        <button @click="changePage('home')" class="btn-back">Kembali ke Beranda 🔄</button>
-      </div>
+    <!-- LOGIN PAGE -->
+    <LoginView 
+      v-else-if="currentPage === 'login'" 
+      :initialRole="selectedRole"
+      @navigate-to-quiz="handleRoleRouting"
+      @navigate-to-signup="changePage('signup')"
+      @navigate-to-home="changePage('home')"
+    />
+
+    <!-- STUDENT DASHBOARD -->
+    <StudentDashboardView 
+      v-else-if="currentPage === 'student-dashboard'" 
+      @logout="handleLogout"
+      @start-quiz="handleStartQuiz"
+    />
+
+    <!-- TEACHER DASHBOARD -->
+    <TeacherDashboardView 
+      v-else-if="currentPage === 'teacher-dashboard'" 
+      @logout="handleLogout"
+      @create-quiz="handleCreateQuiz"
+    />
+
+    <!-- CREATE QUIZ -->
+    <CreateQuizView 
+      v-else-if="currentPage === 'create-quiz'"
+      @back="handleQuizBack"
+      @quiz-saved="handleQuizSaved"
+    />
+
+    <!-- HALAMAN PLAY QUIZ -->
+    <QuizPlayView 
+      v-else-if="currentPage === 'quiz-play'"
+      :quiz-id="activeQuizId"
+      @finish="handleQuizFinish"
+      @back="handleQuizBack"
+    />
+
+    <!-- HALAMAN HASIL QUIZ -->
+    <QuizResultView 
+      v-else-if="currentPage === 'quiz-result'"
+      :result-data="quizResultData"
+      @done="handleResultDone"
+    />
+
+    <!-- TEST CONNECTION -->
+    <TestConnection 
+      v-else-if="currentPage === 'test'" 
+      @back-to-home="changePage('home')"
+    />
+
+    <!-- LOADING STATE -->
+    <div v-else-if="loading" class="spinner-global">
+      <div class="spinner"></div>
+    </div>
+
+    <!-- 404 PAGE -->
+    <div v-else class="not-found">
+      <h1>404</h1>
+      <p>Halaman tidak ditemukan</p>
+      <button @click="changePage('home')" class="btn-back-home">Kembali ke Home</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import HomeView from './views/HomeView.vue';
 import SignUpView from './views/SignUpView.vue';
+import LoginView from './views/LoginView.vue';
+import StudentDashboardView from './views/StudentDashboardView.vue';
+import TeacherDashboardView from './views/TeacherDashboardView.vue';
+import CreateQuizView from './views/CreateQuizView.vue';
+import QuizPlayView from './views/QuizPlayView.vue';
+import QuizResultView from './views/QuizResultView.vue';
+import TestConnection from './views/TestConnection.vue';
+import { useAuthStore } from './stores/authStore';
 
-// State untuk mengatur halaman aktif: 'home', 'signup', atau 'quiz'
+const authStore = useAuthStore();
 const currentPage = ref('home');
+const selectedRole = ref('student');
+const loading = ref(false);
+const activeQuizId = ref(null);
+const quizResultData = ref(null);
 
 const changePage = (pageName) => {
   currentPage.value = pageName;
 };
+
+const handleLoginClick = (role) => {
+  console.log('📌 HomeView clicked role:', role);
+  selectedRole.value = role || 'student';
+  currentPage.value = 'login';
+};
+
+const handleSignupSuccess = () => {
+  const role = authStore.role || localStorage.getItem('user_role') || 'student';
+  console.log('📌 Signup - final role:', role);
+  
+  if (role === 'teacher') {
+    currentPage.value = 'teacher-dashboard';
+  } else {
+    currentPage.value = 'student-dashboard';
+  }
+};
+
+const handleRoleRouting = () => {
+  const role = authStore.role || localStorage.getItem('user_role') || selectedRole.value;
+  console.log('📌 Login routing - final role:', role);
+  
+  if (role === 'teacher') {
+    currentPage.value = 'teacher-dashboard';
+  } else {
+    currentPage.value = 'student-dashboard';
+  }
+};
+
+const handleLogout = async () => {
+  loading.value = true;
+  await authStore.logout();
+  loading.value = false;
+  currentPage.value = 'home';
+};
+
+// ===== CREATE QUIZ =====
+const handleCreateQuiz = () => {
+  currentPage.value = 'create-quiz';
+};
+
+const handleQuizBack = () => {
+  currentPage.value = 'teacher-dashboard';
+  activeQuizId.value = null;
+};
+
+const handleQuizSaved = () => {
+  console.log('📌 Quiz saved successfully!');
+};
+
+// ===== QUIZ PLAY =====
+const handleStartQuiz = (quizId) => {
+  activeQuizId.value = quizId;
+  currentPage.value = 'quiz-play';
+};
+
+// ===== QUIZ RESULT =====
+const handleQuizFinish = (result) => {
+  console.log('📌 Quiz finished:', result);
+  
+  let savedQuestions = [];
+  try {
+    const questions = localStorage.getItem('current_quiz_questions');
+    if (questions) {
+      savedQuestions = JSON.parse(questions);
+    }
+  } catch (e) {
+    console.error('Error parsing questions:', e);
+  }
+  
+  const formattedAnswers = result.answers.map((answer, index) => {
+    const questionData = savedQuestions[index] || {};
+    const options = questionData.options || ['Option A', 'Option B', 'Option C', 'Option D'];
+    const correctIndex = questionData.correct_index !== undefined ? questionData.correct_index : 0;
+    
+    return {
+      question: questionData.question || `Soal ${index + 1}`,
+      options: options,
+      correct_answer: options[correctIndex] || 'Correct Answer',
+      user_answer: options[answer.selected] || 'User Answer'
+    };
+  });
+  
+  quizResultData.value = {
+    studentName: authStore.user?.full_name || localStorage.getItem('user_name') || 'Student',
+    score: result.score || 0,
+    totalQuestions: result.total || 5,
+    answers: formattedAnswers
+  };
+  
+  currentPage.value = 'quiz-result';
+  activeQuizId.value = null;
+};
+
+const handleResultDone = () => {
+  currentPage.value = 'student-dashboard';
+  quizResultData.value = null;
+};
+
+// ===== MOUNTED =====
+onMounted(() => {
+  authStore.loadUserFromStorage();
+  
+  const role = authStore.role || localStorage.getItem('user_role');
+  console.log('📌 App mounted - final role:', role);
+  
+  if (authStore.isAuthenticated) {
+    if (role === 'teacher') {
+      currentPage.value = 'teacher-dashboard';
+    } else {
+      currentPage.value = 'student-dashboard';
+    }
+  } else {
+    currentPage.value = 'home';
+  }
+});
+
+// ===== WATCHERS =====
+watch(
+  () => authStore.isAuthenticated,
+  (newVal) => {
+    if (!newVal && currentPage.value !== 'home') {
+      currentPage.value = 'home';
+    }
+  }
+);
+
+watch(
+  () => authStore.role,
+  (newRole) => {
+    console.log('📌 Role changed in store:', newRole);
+    if (newRole === 'teacher') {
+      currentPage.value = 'teacher-dashboard';
+    } else if (newRole === 'student') {
+      currentPage.value = 'student-dashboard';
+    }
+  }
+);
+
+// ===== WINDOW FUNCTIONS =====
+window.goToTest = () => {
+  changePage('test');
+};
+
+window.checkAuth = () => {
+  console.log('=== AUTH STATE ===');
+  console.log('Store role:', authStore.role);
+  console.log('Store user:', authStore.user);
+  console.log('Store isAuthenticated:', authStore.isAuthenticated);
+  console.log('localStorage user_role:', localStorage.getItem('user_role'));
+  console.log('localStorage user_data:', localStorage.getItem('user_data'));
+  console.log('localStorage auth_token:', localStorage.getItem('auth_token'));
+};
 </script>
 
 <style>
-/* Style global untuk reset dan testing page */
-body, html {
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  background-color: #1a1c29;
 }
 
-.quiz-arena {
+html, body, #app {
+  width: 100%;
+  min-height: 100vh;
+  font-family: 'Poppins', sans-serif;
+  overflow-x: hidden;
+  background-color: #f8fafc;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #7468f3;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #635bff;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mt-1 { margin-top: 10px; }
+.mt-2 { margin-top: 20px; }
+.mt-3 { margin-top: 30px; }
+.mb-1 { margin-bottom: 10px; }
+.mb-2 { margin-bottom: 20px; }
+.mb-3 { margin-bottom: 30px; }
+
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.spinner-global {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  font-family: sans-serif;
+  background: #1a1c29;
+}
+
+.spinner-global .spinner {
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top: 4px solid #7468f3;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.not-found {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #1a1c29;
   color: white;
 }
 
-.quiz-placeholder-card {
-  background: white;
-  color: #333;
-  padding: 40px;
-  border-radius: 12px;
-  text-align: center;
-  max-width: 500px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+.not-found h1 {
+  font-size: 80px;
+  color: #7468f3;
+  margin-bottom: 10px;
 }
 
-.btn-back {
-  background-color: #635bff;
+.not-found p {
+  font-size: 20px;
+  color: #94a3b8;
+  margin-bottom: 30px;
+}
+
+.btn-back-home {
+  padding: 12px 32px;
+  background: #7468f3;
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: bold;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  margin-top: 20px;
+  font-family: 'Poppins', sans-serif;
+  transition: all 0.3s;
+}
+
+.btn-back-home:hover {
+  background: #635bff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(116, 104, 243, 0.3);
 }
 </style>
