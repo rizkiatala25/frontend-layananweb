@@ -55,6 +55,17 @@
           </div>
 
           <div class="input-group">
+            <label for="email">Email</label>
+            <input 
+              type="email" 
+              id="email" 
+              v-model="formData.email" 
+              placeholder="Email" 
+              required
+            />
+          </div>
+
+          <div class="input-group">
             <label for="password">Password</label>
             <div class="password-wrapper">
               <input 
@@ -138,6 +149,7 @@ export default {
       formData: {
         full_name: '',
         username: '',
+        email: '',
         password: '',
         confirm_password: '',
       },
@@ -166,35 +178,53 @@ export default {
         return;
       }
 
+      // Validasi email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(this.formData.email)) {
+        this.errorMessage = "Format email tidak valid!";
+        return;
+      }
+
       this.loading = true;
 
       try {
         const authStore = useAuthStore();
         
-        // Siapkan data untuk register - ROLE OTOMATIS STUDENT
+        // Siapkan data untuk register
         const registerData = {
           full_name: this.formData.full_name,
           username: this.formData.username,
+          email: this.formData.email,
           role: 'student',
           password: this.formData.password
         };
 
-        const result = await authStore.register(registerData);
+        console.log('📤 Register data:', registerData);
 
-        if (result.success) {
-          // Registrasi berhasil
-          this.successMessage = `Akun @${this.formData.username} berhasil dibuat!`;
+        // 🔥 REGISTER TANPA AUTO LOGIN
+        const response = await authStore.registerOnly(registerData);
+
+        console.log('📥 Register response:', response);
+
+        if (response.success) {
+          this.successMessage = `Akun @${this.formData.username} berhasil dibuat! Silakan login.`;
           
-          // Tunggu sebentar lalu redirect
+          // 🔥 SETELAH 1.5 DETIK, ARRAH KE HALAMAN LOGIN STUDENT
           setTimeout(() => {
-            this.$emit('navigate-to-quiz');
+            this.$emit('navigate-to-login', 'student');
           }, 1500);
         } else {
-          this.errorMessage = result.message || 'Registrasi gagal. Silakan coba lagi.';
+          this.errorMessage = response.message || 'Registrasi gagal. Silakan coba lagi.';
         }
       } catch (error) {
         console.error('Register error:', error);
-        this.errorMessage = error.response?.data?.message || 'Terjadi kesalahan. Silakan coba lagi.';
+        if (error.response?.data?.errors) {
+          const errors = error.response.data.errors;
+          const messages = Object.values(errors).flat().join(', ');
+          this.errorMessage = messages;
+        } else {
+          this.errorMessage = error.response?.data?.message || 'Terjadi kesalahan. Silakan coba lagi.';
+        }
       } finally {
         this.loading = false;
       }
@@ -204,6 +234,7 @@ export default {
 </script>
 
 <style scoped>
+/* ... style sama seperti sebelumnya ... */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 .signup-wrapper {
@@ -223,7 +254,6 @@ export default {
   box-sizing: border-box;
 }
 
-/* --- HEADER LOGO --- */
 .app-header {
   position: absolute;
   top: 40px;
@@ -251,7 +281,6 @@ export default {
   letter-spacing: 2px;
 }
 
-/* --- BACKGROUND CURVES --- */
 .background-decorations {
   position: absolute;
   width: 100%;
@@ -284,7 +313,6 @@ export default {
   transform: rotate(-25deg);
 }
 
-/* --- MAIN CARD --- */
 .signup-main {
   display: flex;
   justify-content: center;
@@ -336,7 +364,6 @@ export default {
   letter-spacing: 0.5px;
 }
 
-/* --- INPUTS --- */
 .input-group {
   margin-bottom: 18px;
   text-align: left;
@@ -392,7 +419,6 @@ export default {
   color: #7468f3;
 }
 
-/* --- BUTTON --- */
 .btn-signup {
   width: 100%;
   background: linear-gradient(135deg, #7468f3 0%, #635bff 100%);
@@ -419,7 +445,6 @@ export default {
   transform: none;
 }
 
-/* --- MESSAGES --- */
 .error-message {
   background: #fee2e2;
   color: #dc2626;
@@ -440,7 +465,6 @@ export default {
   text-align: center;
 }
 
-/* --- FOOTER --- */
 .footer-text {
   margin-top: 20px;
   font-size: 13px;
@@ -461,7 +485,6 @@ export default {
   text-decoration: underline;
 }
 
-/* --- RESPONSIVE --- */
 @media (max-width: 480px) {
   .app-header {
     top: 20px;

@@ -1,7 +1,6 @@
 <template>
   <div class="student-dashboard">
     
-    <!-- ===== NAVBAR ===== -->
     <header class="navbar">
       <div class="nav-left">
         <div class="logo">
@@ -10,16 +9,21 @@
         </div>
         <div class="search-box">
           <span class="search-icon">🔍</span>
-          <input type="text" placeholder="Find a quiz" v-model="searchQuery" />
+          <input 
+            type="text" 
+            placeholder="Find a quiz" 
+            v-model="searchQuery"
+            @input="filterQuizzes"
+          />
         </div>
       </div>
       
       <nav class="nav-center">
-        <a href="#" class="nav-link active">
+        <a href="#" class="nav-link" :class="{ active: currentTab === 'home' }" @click.prevent="currentTab = 'home'">
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
           Home
         </a>
-        <a href="#" class="nav-link">
+        <a href="#" class="nav-link" :class="{ active: currentTab === 'activity' }" @click.prevent="currentTab = 'activity'">
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           Activity
         </a>
@@ -36,77 +40,131 @@
       </div>
     </header>
 
-    <!-- ===== MAIN CONTENT ===== -->
     <main class="main-content">
       
-      <!-- ===== TOP ROW: Join Code + Welcome ===== -->
-      <div class="top-row">
-        <div class="join-card">
-          <div class="join-wrapper">
-            <input type="text" placeholder="Enter a join code" v-model="joinCode" class="join-input" />
-            <button @click="handleJoinCode" class="btn-join">Join</button>
+      <div v-if="currentTab === 'home'">
+        
+        <div class="top-row">
+          <div class="join-card">
+            <div class="join-wrapper">
+              <input 
+                type="text" 
+                placeholder="Enter a join code" 
+                v-model="joinCode" 
+                class="join-input"
+                @keyup.enter="handleJoinCode"
+              />
+              <button @click="handleJoinCode" class="btn-join">Join</button>
+            </div>
+          </div>
+
+          <div class="welcome-banner">
+            <div class="welcome-text">
+              <span class="welcome-date">{{ currentDate }}</span>
+              <h2>Welcome Back, {{ firstName }}</h2>
+              <p>Start a quiz and challenge yourself today!</p>
+            </div>
+            <div class="welcome-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="72" height="72">
+                <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
+                <path d="M4.5 12.06v3.63c0 2.05 3.36 3.81 7.5 3.81s7.5-1.76 7.5-3.81v-3.63l-7.5 4.09-7.5-4.09z"/>
+              </svg>
+            </div>
           </div>
         </div>
 
-        <div class="welcome-banner">
-          <div class="welcome-text">
-            <span class="welcome-date">{{ currentDate }}</span>
-            <h2>Welcome Back, {{ firstName }}</h2>
-            <p>Start a quiz and challenge yourself today!</p>
-          </div>
-          <div class="welcome-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="72" height="72">
-              <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
-              <path d="M4.5 12.06v3.63c0 2.05 3.36 3.81 7.5 3.81s7.5-1.76 7.5-3.81v-3.63l-7.5 4.09-7.5-4.09z"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== RECENT ACTIVITY ===== -->
-      <section class="section">
-        <h2 class="section-title">Recent activity</h2>
-        <div class="card-grid">
-          <div 
-            v-for="(item, index) in recentActivities" 
-            :key="index" 
-            class="activity-card"
-            @click="openQuiz(item)"
-          >
-            <div class="card-emoji">{{ item.emoji }}</div>
-            <div class="card-body">
-              <span class="card-badge">{{ item.questions }} Qs</span>
-              <h3 class="card-title">{{ item.title }}</h3>
-              <div class="card-accuracy" :class="item.accuracyClass">
-                {{ item.accuracy }} accuracy
+        <section class="section">
+          <h2 class="section-title">Recent activity</h2>
+          <div class="card-grid">
+            <div 
+              v-for="(item, index) in recentActivities" 
+              :key="index" 
+              class="activity-card"
+              @click="openQuiz(item)"
+            >
+              <div class="card-emoji">{{ item.emoji }}</div>
+              <div class="card-body">
+                <span class="card-badge">{{ item.questions }} Qs</span>
+                <h3 class="card-title">{{ item.title }}</h3>
+                <div class="card-accuracy" :class="item.accuracyClass">
+                  {{ item.accuracy }} accuracy
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ===== SUBJECTS ===== -->
-      <section class="section">
-        <h2 class="section-title">Subjects</h2>
-        <div class="card-grid">
-          <div 
-            v-for="(subject, index) in subjects" 
-            :key="index" 
-            class="subject-card"
-            @click="openQuiz(subject)"
-          >
-            <div class="card-emoji">{{ subject.emoji }}</div>
-            <div class="card-body">
-              <span class="card-badge">{{ subject.questions }} Qs</span>
-              <h3 class="card-title">{{ subject.title }}</h3>
+            <div v-if="recentActivities.length === 0" class="empty-state">
+              <p>Belum ada kuis yang dikerjakan</p>
             </div>
           </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">Available Quizzes</h2>
+          <div class="card-grid">
+            <div 
+              v-for="(quiz, index) in filteredQuizzes" 
+              :key="index" 
+              class="subject-card"
+              @click="openQuiz(quiz)"
+            >
+              <div class="card-cover">
+                <img v-if="quiz.cover_image" :src="quiz.cover_image" alt="Cover" class="cover-image" />
+                <div v-else class="card-emoji">{{ quiz.emoji }}</div>
+              </div>
+              <div class="card-body">
+                <span class="card-badge">{{ quiz.total_questions || quiz.questions || 0 }} Qs</span>
+                <h3 class="card-title">{{ quiz.title }}</h3>
+                <span class="quiz-source" :class="quiz.source">
+                  {{ quiz.source === 'teacher' ? '👨‍🏫 Teacher' : '📚 Default' }}
+                </span>
+              </div>
+            </div>
+            <div v-if="filteredQuizzes.length === 0" class="empty-state">
+              <p>Tidak ada kuis yang ditemukan</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <div v-if="currentTab === 'activity'" class="activity-page">
+        <h2 class="activity-title">Activity History</h2>
+        <p class="activity-subtitle">Kuis yang sudah kamu kerjakan</p>
+        
+        <div class="activity-list">
+          <div 
+            v-for="(item, index) in allActivities" 
+            :key="index"
+            class="activity-item"
+          >
+            <div class="activity-icon">{{ item.emoji }}</div>
+            <div class="activity-info">
+              <h4 class="activity-name">{{ item.title }}</h4>
+              <span class="activity-date">{{ item.date }}</span>
+            </div>
+            <div class="activity-result">
+              <span class="activity-score" :class="item.accuracyClass">
+                {{ item.accuracy }}
+              </span>
+            </div>
+            <button class="btn-delete-history" @click="deleteHistory(index)" title="Hapus history">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+          <div v-if="allActivities.length === 0" class="empty-state">
+            <p>Belum ada history aktivitas</p>
+          </div>
         </div>
-      </section>
+        
+        <button v-if="allActivities.length > 0" class="btn-clear-all" @click="clearAllHistory">
+          Hapus Semua History
+        </button>
+      </div>
 
     </main>
 
-    <!-- ===== MODAL DETAIL QUIZ ===== -->
     <QuizDetailModal 
       v-if="selectedQuiz" 
       :quiz="selectedQuiz"
@@ -121,339 +179,6 @@
 import { useAuthStore } from '@/stores/authStore.js';
 import QuizDetailModal from '@/components/QuizDetailModal.vue';
 
-// 🔥 DATA SOAL LENGKAP PER MATA PELAJARAN
-const quizData = {
-  // ===== SEJARAH INDONESIA =====
-  'sejarah indonesia': {
-    title: 'Sejarah Indonesia',
-    emoji: '🇲🇨',
-    questions: [
-      {
-        question: 'Tanggal berapa Indonesia merdeka?',
-        options: ['17 Agustus 1945', '17 Agustus 1946', '17 Agustus 1947', '17 Agustus 1944'],
-        correct_index: 0
-      },
-      {
-        question: 'Siapa yang membacakan teks proklamasi?',
-        options: ['Soekarno', 'Mohammad Hatta', 'Ahmad Soebarjo', 'Ki Hajar Dewantara'],
-        correct_index: 0
-      },
-      {
-        question: 'Di mana teks proklamasi dibacakan?',
-        options: ['Jakarta', 'Bandung', 'Yogyakarta', 'Surabaya'],
-        correct_index: 0
-      },
-      {
-        question: 'Siapa yang mengetik teks proklamasi?',
-        options: ['Sayuti Melik', 'Mohammad Hatta', 'Soekarno', 'Ahmad Soebarjo'],
-        correct_index: 0
-      },
-      {
-        question: 'Apa nama rumusan dasar negara yang diusulkan oleh Soekarno?',
-        options: ['Pancasila', 'Piagam Jakarta', 'UUD 1945', 'Proklamasi'],
-        correct_index: 0
-      }
-    ]
-  },
-
-  // ===== PENGETAHUAN SOSIAL =====
-  'pengetahuan sosial': {
-    title: 'Pengetahuan Sosial',
-    emoji: '🧠',
-    questions: [
-      {
-        question: 'Apa ibu kota Indonesia?',
-        options: ['Jakarta', 'Bandung', 'Surabaya', 'Medan'],
-        correct_index: 0
-      },
-      {
-        question: 'Berapa jumlah provinsi di Indonesia saat ini?',
-        options: ['34', '35', '33', '32'],
-        correct_index: 0
-      },
-      {
-        question: 'Apa bahasa persatuan Indonesia?',
-        options: ['Bahasa Indonesia', 'Bahasa Jawa', 'Bahasa Sunda', 'Bahasa Melayu'],
-        correct_index: 0
-      },
-      {
-        question: 'Siapa presiden ke-3 Indonesia?',
-        options: ['B.J. Habibie', 'Abdurrahman Wahid', 'Megawati Soekarnoputri', 'Susilo Bambang Yudhoyono'],
-        correct_index: 0
-      },
-      {
-        question: 'Apa lambang negara Indonesia?',
-        options: ['Garuda Pancasila', 'Banteng', 'Elang', 'Komodo'],
-        correct_index: 0
-      }
-    ]
-  },
-
-  // ===== MATEMATIKA =====
-  'matematika': {
-    title: 'Matematika',
-    emoji: '📐',
-    questions: [
-      {
-        question: 'Berapakah hasil dari 2 + 2?',
-        options: ['3', '4', '5', '6'],
-        correct_index: 1
-      },
-      {
-        question: 'Berapakah hasil dari 5 × 5?',
-        options: ['20', '25', '30', '35'],
-        correct_index: 1
-      },
-      {
-        question: 'Berapakah hasil dari 10 ÷ 2?',
-        options: ['2', '3', '5', '7'],
-        correct_index: 2
-      },
-      {
-        question: 'Apa hasil dari 3²?',
-        options: ['3', '6', '9', '12'],
-        correct_index: 2
-      },
-      {
-        question: 'Berapakah akar kuadrat dari 64?',
-        options: ['6', '7', '8', '9'],
-        correct_index: 2
-      }
-    ]
-  },
-
-  // ===== PENGETAHUAN ALAM =====
-  'pengetahuan alam': {
-    title: 'Pengetahuan Alam',
-    emoji: '🌱',
-    questions: [
-      {
-        question: 'Planet terbesar di tata surya adalah?',
-        options: ['Jupiter', 'Saturnus', 'Uranus', 'Neptunus'],
-        correct_index: 0
-      },
-      {
-        question: 'Apa yang menyebabkan siang dan malam?',
-        options: ['Rotasi Bumi', 'Revolusi Bumi', 'Gravitasi Bumi', 'Bulan'],
-        correct_index: 0
-      },
-      {
-        question: 'Berapa lama waktu yang dibutuhkan Bumi untuk berevolusi mengelilingi Matahari?',
-        options: ['365 hari', '360 hari', '370 hari', '355 hari'],
-        correct_index: 0
-      },
-      {
-        question: 'Apa nama satelit alami Bumi?',
-        options: ['Matahari', 'Bulan', 'Mars', 'Venus'],
-        correct_index: 1
-      },
-      {
-        question: 'Air memiliki berapa wujud?',
-        options: ['2', '3', '4', '5'],
-        correct_index: 1
-      }
-    ]
-  },
-
-  // ===== PENDIDIKAN KEWARGANEGARAAN =====
-  'pendidikan kewarganegaraan': {
-    title: 'Pendidikan Kewarganegaraan',
-    emoji: '🦅',
-    questions: [
-      {
-        question: 'Apa semboyan negara Indonesia?',
-        options: ['Bhinneka Tunggal Ika', 'Merdeka', 'Bersatu Kita Teguh', 'Indonesia Raya'],
-        correct_index: 0
-      },
-      {
-        question: 'Berapa sila dalam Pancasila?',
-        options: ['4', '5', '6', '7'],
-        correct_index: 1
-      },
-      {
-        question: 'Sila ke-3 Pancasila berbunyi?',
-        options: ['Persatuan Indonesia', 'Kemanusiaan yang adil dan beradab', 'Kerakyatan', 'Keadilan sosial'],
-        correct_index: 0
-      },
-      {
-        question: 'Hari Kebangkitan Nasional diperingati pada tanggal?',
-        options: ['20 Mei', '21 Mei', '22 Mei', '23 Mei'],
-        correct_index: 0
-      },
-      {
-        question: 'Bendera Indonesia memiliki warna?',
-        options: ['Merah dan Putih', 'Merah dan Biru', 'Biru dan Putih', 'Kuning dan Merah'],
-        correct_index: 0
-      }
-    ]
-  },
-
-  // ===== SENI BUDAYA =====
-  'seni budaya': {
-    title: 'Seni Budaya',
-    emoji: '🎭',
-    questions: [
-      {
-        question: 'Tari tradisional dari Bali adalah?',
-        options: ['Kecak', 'Jaipong', 'Saman', 'Pendet'],
-        correct_index: 0
-      },
-      {
-        question: 'Alat musik tradisional dari Jawa Barat adalah?',
-        options: ['Angklung', 'Gamelan', 'Kolintang', 'Tifa'],
-        correct_index: 0
-      },
-      {
-        question: 'Wayang adalah kesenian dari daerah?',
-        options: ['Jawa', 'Sumatra', 'Kalimantan', 'Sulawesi'],
-        correct_index: 0
-      },
-      {
-        question: 'Tari Saman berasal dari daerah?',
-        options: ['Jawa', 'Aceh', 'Bali', 'Sumatra Utara'],
-        correct_index: 1
-      },
-      {
-        question: 'Rumah adat Honai berasal dari?',
-        options: ['Papua', 'Jawa', 'Sumatra', 'Kalimantan'],
-        correct_index: 0
-      }
-    ]
-  },
-
-  // ===== PENDIDIKAN AGAMA =====
-  'pendidikan agama': {
-    title: 'Pendidikan Agama',
-    emoji: '📖',
-    questions: [
-      {
-        question: 'Agama Islam memiliki berapa rukun iman?',
-        options: ['5', '6', '7', '8'],
-        correct_index: 1
-      },
-      {
-        question: 'Agama Kristen memiliki kitab suci yang disebut?',
-        options: ['Alkitab', 'Al-Quran', 'Wedha', 'Tripitaka'],
-        correct_index: 0
-      },
-      {
-        question: 'Agama Hindu memiliki kitab suci yang disebut?',
-        options: ['Wedha', 'Tripitaka', 'Alkitab', 'Al-Quran'],
-        correct_index: 0
-      },
-      {
-        question: 'Tempat ibadah agama Buddha adalah?',
-        options: ['Vihara', 'Masjid', 'Gereja', 'Pura'],
-        correct_index: 0
-      },
-      {
-        question: 'Agama yang memiliki kitab suci Wedha adalah?',
-        options: ['Hindu', 'Buddha', 'Islam', 'Kristen'],
-        correct_index: 0
-      }
-    ]
-  },
-
-  // ===== PENJASKES =====
-  'penjaskes': {
-    title: 'Penjaskes',
-    emoji: '⚽',
-    questions: [
-      {
-        question: 'Olahraga sepak bola dimainkan oleh berapa orang?',
-        options: ['9', '10', '11', '12'],
-        correct_index: 2
-      },
-      {
-        question: 'Bulu tangkis menggunakan alat pemukul yang disebut?',
-        options: ['Raket', 'Bet', 'Tongkat', 'Kayu'],
-        correct_index: 0
-      },
-      {
-        question: 'Renang gaya punggung adalah gaya renang yang dilakukan dengan posisi?',
-        options: ['Telentang', 'Tengkurap', 'Miring', 'Berbaring'],
-        correct_index: 0
-      },
-      {
-        question: 'Permainan bola basket dimainkan oleh berapa orang per tim?',
-        options: ['4', '5', '6', '7'],
-        correct_index: 1
-      },
-      {
-        question: 'Olahraga atletik terdiri dari?',
-        options: ['Lari, Lompat, Lempar', 'Renang, Sepak Bola, Bola Basket', 'Bulu Tangkis, Tenis, Golf', 'Bola Voli, Futsal, Bola Tangan'],
-        correct_index: 0
-      }
-    ]
-  },
-
-  // ===== BAHASA INDONESIA =====
-  'bahasa indonesia': {
-    title: 'Bahasa Indonesia',
-    emoji: '🇮🇩',
-    questions: [
-      {
-        question: 'Kalimat yang memiliki predikat adalah?',
-        options: ['Kalimat berita', 'Kalimat tanya', 'Kalimat perintah', 'Kalimat seru'],
-        correct_index: 0
-      },
-      {
-        question: 'Kata "makan" termasuk jenis kata?',
-        options: ['Verba', 'Nomina', 'Adjektiva', 'Numeralia'],
-        correct_index: 0
-      },
-      {
-        question: 'Apa sinonim dari kata "gembira"?',
-        options: ['Sedih', 'Marah', 'Senang', 'Bingung'],
-        correct_index: 2
-      },
-      {
-        question: 'Tanda baca yang digunakan untuk mengakhiri kalimat berita adalah?',
-        options: ['Titik (.)', 'Koma (,)', 'Tanda tanya (?)', 'Tanda seru (!)'],
-        correct_index: 0
-      },
-      {
-        question: 'Pantun memiliki berapa baris?',
-        options: ['2', '3', '4', '5'],
-        correct_index: 2
-      }
-    ]
-  },
-
-  // ===== BAHASA SUNDA =====
-  'bahasa sunda': {
-    title: 'Bahasa Sunda',
-    emoji: '🧱',
-    questions: [
-      {
-        question: 'Apa arti "Wilujeng enjing" dalam bahasa Sunda?',
-        options: ['Selamat pagi', 'Selamat siang', 'Selamat sore', 'Selamat malam'],
-        correct_index: 0
-      },
-      {
-        question: '"Kumaha damang?" dalam bahasa Sunda artinya?',
-        options: ['Apa kabar?', 'Sudah makan?', 'Mau ke mana?', 'Siapa nama kamu?'],
-        correct_index: 0
-      },
-      {
-        question: 'Apa arti "Maneh" dalam bahasa Sunda?',
-        options: ['Kamu', 'Saya', 'Mereka', 'Kita'],
-        correct_index: 0
-      },
-      {
-        question: '"Nuhun" dalam bahasa Sunda artinya?',
-        options: ['Terima kasih', 'Maaf', 'Permisi', 'Tolong'],
-        correct_index: 0
-      },
-      {
-        question: 'Apa arti "Abdi" dalam bahasa Sunda?',
-        options: ['Saya', 'Kamu', 'Mereka', 'Kita'],
-        correct_index: 0
-      }
-    ]
-  }
-};
-
 export default {
   name: 'StudentDashboardView',
   components: {
@@ -462,78 +187,68 @@ export default {
   emits: ['logout', 'start-quiz'],
   data() {
     return {
+      currentTab: 'home',
       searchQuery: '',
       joinCode: '',
       studentName: 'Akmal Randi',
       selectedQuiz: null,
 
-      recentActivities: [
+      defaultQuizzes: [
         { 
           id: 1, 
-          title: 'sejarah indonesia', 
-          questions: 5, 
-          accuracy: '50%', 
-          accuracyClass: 'accuracy-red', 
+          title: 'Sejarah Indonesia', 
+          total_questions: 5, 
           emoji: '🇲🇨',
+          cover_image: null,
           description: 'Test your knowledge about Indonesian history',
           duration: 10,
-          total_questions: 5
+          source: 'default'
         },
         { 
           id: 2, 
-          title: 'pengetahuan sosial', 
-          questions: 5, 
-          accuracy: '100%', 
-          accuracyClass: 'accuracy-green', 
+          title: 'Pengetahuan Sosial', 
+          total_questions: 5, 
           emoji: '🧠',
+          cover_image: null,
           description: 'Social knowledge quiz',
           duration: 10,
-          total_questions: 5
+          source: 'default'
         },
         { 
           id: 3, 
-          title: 'matematika', 
-          questions: 5, 
-          accuracy: '100%', 
-          accuracyClass: 'accuracy-green', 
+          title: 'Matematika', 
+          total_questions: 5, 
           emoji: '📐',
+          cover_image: null,
           description: 'Math quiz for you',
           duration: 10,
-          total_questions: 5
+          source: 'default'
         },
         { 
           id: 4, 
-          title: 'pengetahuan alam', 
-          questions: 5, 
-          accuracy: '100%', 
-          accuracyClass: 'accuracy-green', 
+          title: 'Pengetahuan Alam', 
+          total_questions: 5, 
           emoji: '🌱',
+          cover_image: null,
           description: 'Science quiz',
           duration: 10,
-          total_questions: 5
+          source: 'default'
         },
         { 
           id: 5, 
-          title: 'pendidikan kewarganegaraan', 
-          questions: 5, 
-          accuracy: '100%', 
-          accuracyClass: 'accuracy-green', 
+          title: 'Pendidikan Kewarganegaraan', 
+          total_questions: 5, 
           emoji: '🦅',
+          cover_image: null,
           description: 'Civics education quiz',
           duration: 10,
-          total_questions: 5
+          source: 'default'
         }
       ],
 
-      subjects: [
-        { id: 6, title: 'pengetahuan alam', questions: 5, emoji: '🌱', description: 'Science quiz', duration: 10, total_questions: 5 },
-        { id: 7, title: 'pendidikan kewarganegaraan', questions: 5, emoji: '🦅', description: 'Civics education quiz', duration: 10, total_questions: 5 },
-        { id: 8, title: 'seni budaya', questions: 5, emoji: '🎭', description: 'Art and culture quiz', duration: 10, total_questions: 5 },
-        { id: 9, title: 'pendidikan agama', questions: 5, emoji: '📖', description: 'Religion education quiz', duration: 10, total_questions: 5 },
-        { id: 10, title: 'penjaskes', questions: 5, emoji: '⚽', description: 'Physical education quiz', duration: 10, total_questions: 5 },
-        { id: 11, title: 'bahasa indonesia', questions: 5, emoji: '🇮🇩', description: 'Indonesian language quiz', duration: 10, total_questions: 5 },
-        { id: 12, title: 'bahasa sunda', questions: 5, emoji: '🧱', description: 'Sundanese language quiz', duration: 10, total_questions: 5 }
-      ]
+      teacherQuizzes: [],
+      recentActivities: [],
+      allActivities: []
     };
   },
   computed: {
@@ -547,6 +262,19 @@ export default {
         month: 'long', 
         day: 'numeric' 
       });
+    },
+    allQuizzes() {
+      return [...this.defaultQuizzes, ...this.teacherQuizzes];
+    },
+    filteredQuizzes() {
+      if (!this.searchQuery.trim()) {
+        return this.allQuizzes;
+      }
+      const query = this.searchQuery.toLowerCase();
+      return this.allQuizzes.filter(quiz => 
+        quiz.title.toLowerCase().includes(query) ||
+        (quiz.description && quiz.description.toLowerCase().includes(query))
+      );
     }
   },
   mounted() {
@@ -554,41 +282,298 @@ export default {
     if (savedName) {
       this.studentName = savedName;
     }
+    
+    this.checkQuizResult();
+    this.loadFromStorage();
+    this.loadTeacherQuizzes();
   },
   methods: {
-    handleJoinCode() {
-      if (this.joinCode.trim()) {
-        alert(`Joining room: ${this.joinCode}`);
+    loadTeacherQuizzes() {
+      const sharedQuizzes = JSON.parse(localStorage.getItem('shared_quizzes') || '[]');
+      console.log('📚 Loading shared quizzes:', sharedQuizzes);
+      
+      if (sharedQuizzes.length === 0) {
+        console.log('ℹ️ No shared quizzes found');
+        return;
+      }
+      
+      sharedQuizzes.forEach(sharedQuiz => {
+        const exists = this.teacherQuizzes.some(q => q.id === sharedQuiz.id);
+        if (!exists) {
+          this.teacherQuizzes.push({
+            id: sharedQuiz.id,
+            title: sharedQuiz.title,
+            total_questions: sharedQuiz.total_questions || 5,
+            emoji: sharedQuiz.emoji || '📝',
+            cover_image: sharedQuiz.cover_image || null,
+            description: sharedQuiz.description || 'Quiz from teacher',
+            duration: sharedQuiz.duration || 10,
+            source: 'teacher',
+            join_code: sharedQuiz.join_code,
+            questions: sharedQuiz.questions || []
+          });
+          console.log('✅ Added quiz:', sharedQuiz.title);
+        }
+      });
+      
+      this.saveToStorage();
+    },
+
+    checkQuizResult() {
+      const quizResult = localStorage.getItem('quiz_result');
+      if (quizResult) {
+        try {
+          const result = JSON.parse(quizResult);
+          console.log('📌 Found quiz result in localStorage:', result);
+          this.addToRecent(result);
+          localStorage.removeItem('quiz_result');
+        } catch (e) {
+          console.error('Error parsing quiz result:', e);
+        }
       }
     },
 
+    loadFromStorage() {
+      const savedTeacherQuizzes = localStorage.getItem('teacher_quizzes');
+      if (savedTeacherQuizzes) {
+        try {
+          this.teacherQuizzes = JSON.parse(savedTeacherQuizzes);
+        } catch (e) {
+          console.error('Error loading teacher quizzes:', e);
+        }
+      }
+      
+      const savedRecent = localStorage.getItem('recent_activities');
+      if (savedRecent) {
+        try {
+          this.recentActivities = JSON.parse(savedRecent);
+        } catch (e) {
+          console.error('Error loading recent activities:', e);
+        }
+      }
+      
+      const savedAll = localStorage.getItem('all_activities');
+      if (savedAll) {
+        try {
+          this.allActivities = JSON.parse(savedAll);
+        } catch (e) {
+          console.error('Error loading all activities:', e);
+        }
+      }
+    },
+
+    saveToStorage() {
+      localStorage.setItem('teacher_quizzes', JSON.stringify(this.teacherQuizzes));
+      localStorage.setItem('recent_activities', JSON.stringify(this.recentActivities));
+      localStorage.setItem('all_activities', JSON.stringify(this.allActivities));
+      console.log('📌 Data saved to localStorage');
+    },
+
+    addToRecent(quizResult) {
+      const accuracy = quizResult.score + '%';
+      const accuracyClass = quizResult.score >= 70 ? 'accuracy-green' : 'accuracy-red';
+      
+      const activity = {
+        id: Date.now(),
+        title: quizResult.title || 'Quiz',
+        questions: quizResult.totalQuestions || 5,
+        accuracy: accuracy,
+        accuracyClass: accuracyClass,
+        emoji: quizResult.emoji || '📝',
+        date: new Date().toLocaleDateString('id-ID', { 
+          day: 'numeric', 
+          month: 'long', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      };
+      
+      console.log('📌 Adding to recent activity:', activity);
+      
+      this.recentActivities.unshift(activity);
+      if (this.recentActivities.length > 5) {
+        this.recentActivities.pop();
+      }
+      
+      this.allActivities.unshift(activity);
+      this.saveToStorage();
+    },
+
+    handleJoinCode() {
+      if (!this.joinCode.trim()) {
+        alert('Masukkan kode join terlebih dahulu!');
+        return;
+      }
+      
+      const code = this.joinCode.trim().toUpperCase();
+      console.log('🔍 Searching for join code:', code);
+      
+      const sharedQuizzes = JSON.parse(localStorage.getItem('shared_quizzes') || '[]');
+      const foundQuiz = sharedQuizzes.find(q => q.join_code === code);
+      
+      if (foundQuiz) {
+        const exists = this.teacherQuizzes.some(q => q.id === foundQuiz.id);
+        if (!exists) {
+          const newQuiz = {
+            id: foundQuiz.id,
+            title: foundQuiz.title,
+            total_questions: foundQuiz.total_questions || 5,
+            emoji: foundQuiz.emoji || '📝',
+            cover_image: foundQuiz.cover_image || null,
+            description: foundQuiz.description || 'Quiz from teacher',
+            duration: foundQuiz.duration || 10,
+            source: 'teacher',
+            join_code: foundQuiz.join_code,
+            questions: foundQuiz.questions || []
+          };
+          
+          this.teacherQuizzes.push(newQuiz);
+          this.saveToStorage();
+          
+          alert(`✅ Berhasil join kuis: ${foundQuiz.title}`);
+          this.openQuiz(newQuiz);
+        } else {
+          alert('⚠️ Kuis sudah ada di daftar Anda');
+          const existingQuiz = this.teacherQuizzes.find(q => q.id === foundQuiz.id);
+          if (existingQuiz) {
+            this.openQuiz(existingQuiz);
+          }
+        }
+      } else {
+        alert(`❌ Kode join "${code}" tidak valid!`);
+      }
+      
+      this.joinCode = '';
+    },
+
+    filterQuizzes() {
+      // Sudah dihandle oleh computed filteredQuizzes
+    },
+
     openQuiz(item) {
-      // 🔥 AMBIL DATA SOAL DARI quizData
-      const key = item.title.toLowerCase();
-      const quiz = quizData[key] || quizData['sejarah indonesia'];
+      const publishedQuizzes = JSON.parse(localStorage.getItem('published_quizzes') || '[]');
+      const fullQuiz = publishedQuizzes.find(q => q.id === item.id);
       
       this.selectedQuiz = {
         id: item.id,
         title: item.title,
         description: item.description || 'Test your knowledge!',
-        total_questions: item.total_questions || item.questions || 5,
+        total_questions: item.total_questions || 5,
         duration: item.duration || 10,
         emoji: item.emoji || '📝',
-        // 🔥 TAMBAHKAN SOAL
-        questions: quiz.questions || []
+        source: item.source || 'default',
+        cover_image: item.cover_image || null,
+        questions: fullQuiz?.questions || item.questions || []
       };
     },
 
     handleStartQuiz(quiz) {
-      // 🔥 SIMPAN SOAL KE LOCALSTORAGE UNTUK DIPAKAI DI QUIZ PLAY
       localStorage.setItem('current_quiz_title', quiz.title);
-      localStorage.setItem('current_quiz_questions', JSON.stringify(quiz.questions || []));
+      localStorage.setItem('current_quiz_duration', quiz.duration || 10);
+      
+      const publishedQuizzes = JSON.parse(localStorage.getItem('published_quizzes') || '[]');
+      const foundQuiz = publishedQuizzes.find(q => q.id === quiz.id);
+      
+      if (foundQuiz && foundQuiz.questions) {
+        const questionsWithImages = foundQuiz.questions.map(q => ({
+          id: q.id || Date.now(),
+          question: q.question || 'No question',
+          question_image: q.question_image || null,
+          options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+          options_images: q.options_images || [],
+          correct_index: q.correct_index || 0,
+          points: q.points || 1
+        }));
+        localStorage.setItem('current_quiz_questions', JSON.stringify(questionsWithImages));
+        console.log('📚 Questions with images saved:', questionsWithImages);
+      } else if (quiz.questions && quiz.questions.length > 0) {
+        const questionsWithImages = quiz.questions.map(q => ({
+          ...q,
+          question_image: q.question_image || null,
+          options_images: q.options_images || []
+        }));
+        localStorage.setItem('current_quiz_questions', JSON.stringify(questionsWithImages));
+      } else {
+        const mockQuestions = this.getMockQuestions(quiz);
+        localStorage.setItem('current_quiz_questions', JSON.stringify(mockQuestions));
+      }
       
       this.$emit('start-quiz', quiz.id);
       this.selectedQuiz = null;
     },
 
+    getMockQuestions(quiz) {
+      const subjects = {
+        'sejarah': [
+          { 
+            question: 'Tanggal berapa Indonesia merdeka?', 
+            options: ['17 Agustus 1945', '17 Agustus 1946', '17 Agustus 1947', '17 Agustus 1944'], 
+            correct_index: 0,
+            question_image: null,
+            options_images: []
+          },
+          { 
+            question: 'Siapa proklamator Indonesia?', 
+            options: ['Soekarno-Hatta', 'Soeharto', 'Habibie', 'Megawati'], 
+            correct_index: 0,
+            question_image: null,
+            options_images: []
+          }
+        ],
+        'matematika': [
+          { 
+            question: 'Berapa hasil 2 + 2?', 
+            options: ['3', '4', '5', '6'], 
+            correct_index: 1,
+            question_image: null,
+            options_images: []
+          },
+          { 
+            question: 'Berapa hasil 5 x 5?', 
+            options: ['20', '25', '30', '35'], 
+            correct_index: 1,
+            question_image: null,
+            options_images: []
+          }
+        ]
+      };
+      
+      const lowerTitle = quiz.title.toLowerCase();
+      let questions = subjects['sejarah'];
+      
+      for (const [key, value] of Object.entries(subjects)) {
+        if (lowerTitle.includes(key)) {
+          questions = value;
+          break;
+        }
+      }
+      
+      return questions.map((q, index) => ({
+        id: index + 1,
+        ...q
+      }));
+    },
+
+    deleteHistory(index) {
+      if (confirm('Hapus history ini?')) {
+        this.allActivities.splice(index, 1);
+        this.recentActivities = this.allActivities.slice(0, 5);
+        this.saveToStorage();
+      }
+    },
+
+    clearAllHistory() {
+      if (confirm('Hapus semua history aktivitas?')) {
+        this.allActivities = [];
+        this.recentActivities = [];
+        this.saveToStorage();
+      }
+    },
+
+    // 🔥 LOGOUT - PASTIKAN EMIT TERKIRIM
     handleLogout() {
+      console.log('📌 Student logout clicked');
       const authStore = useAuthStore();
       authStore.logout();
       this.$emit('logout');
@@ -598,7 +583,7 @@ export default {
 </script>
 
 <style scoped>
-/* Style sama seperti sebelumnya */
+/* ... style sama seperti sebelumnya ... */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 .student-dashboard {
@@ -662,7 +647,7 @@ export default {
   font-size: 13px;
   font-family: 'Poppins', sans-serif;
   color: #334155;
-  width: 160px;
+  width: 180px;
   background: transparent;
 }
 
@@ -692,6 +677,7 @@ export default {
   padding: 8px 4px;
   position: relative;
   transition: color 0.2s;
+  cursor: pointer;
 }
 
 .nav-link:hover {
@@ -949,13 +935,22 @@ export default {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
-.subject-card .card-emoji {
-  height: 100px;
-  background: white;
-  border-bottom: 1px solid #f1f5f9;
+.card-cover {
+  height: 120px;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #f1f5f9;
+}
+
+.cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-emoji {
   font-size: 48px;
 }
 
@@ -973,8 +968,148 @@ export default {
   font-size: 14px;
   font-weight: 500;
   color: #334155;
-  margin: 2px 0 0 0;
+  margin: 2px 0 4px 0;
   text-transform: capitalize;
+}
+
+.quiz-source {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: inline-block;
+}
+
+.quiz-source.default {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.quiz-source.teacher {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
+  color: #94a3b8;
+}
+
+.empty-state p {
+  font-size: 14px;
+}
+
+.activity-page {
+  padding: 10px 0;
+}
+
+.activity-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.activity-subtitle {
+  font-size: 14px;
+  color: #94a3b8;
+  margin: 0 0 24px 0;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: white;
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+  transition: all 0.2s;
+}
+
+.activity-item:hover {
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.activity-icon {
+  font-size: 32px;
+}
+
+.activity-info {
+  flex: 1;
+}
+
+.activity-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1e293b;
+  margin: 0 0 2px 0;
+}
+
+.activity-date {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.activity-result {
+  margin-right: 12px;
+}
+
+.activity-score {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  color: white;
+}
+
+.activity-score.accuracy-green {
+  background: #4ade80;
+}
+
+.activity-score.accuracy-red {
+  background: #f87171;
+}
+
+.btn-delete-history {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-delete-history:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.btn-clear-all {
+  margin-top: 20px;
+  padding: 10px 24px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-all:hover {
+  background: #fecaca;
 }
 
 @media (max-width: 768px) {
@@ -991,7 +1126,7 @@ export default {
   }
 
   .search-box input {
-    width: 100px;
+    width: 120px;
   }
 
   .top-row {
@@ -1015,6 +1150,14 @@ export default {
   .welcome-icon svg {
     width: 56px;
     height: 56px;
+  }
+
+  .activity-item {
+    flex-wrap: wrap;
+  }
+
+  .activity-result {
+    margin-left: auto;
   }
 }
 </style>

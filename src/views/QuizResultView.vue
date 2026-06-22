@@ -3,7 +3,7 @@
     
     <!-- HEADER -->
     <header class="result-header">
-      <h1 class="congrats-title">Congratulation {{ studentName }}</h1>
+      <h1 class="congrats-title">Congratulations {{ studentName }}</h1>
       <p class="sub-title">Good job</p>
     </header>
 
@@ -56,6 +56,12 @@
             <span class="answer-number">{{ index + 1 }}.</span>
             <span class="answer-question">{{ answer.question }}</span>
           </div>
+
+          <!-- 🔥 TAMPILKAN GAMBAR SOAL JIKA ADA -->
+          <div v-if="answer.question_image" class="answer-image-wrapper">
+            <img :src="answer.question_image" alt="Question image" class="answer-image" />
+          </div>
+
           <div class="answer-options">
             <div 
               v-for="(option, optIndex) in answer.options" 
@@ -67,6 +73,10 @@
                 'user-selected': option === answer.user_answer
               }"
             >
+              <!-- 🔥 TAMPILKAN GAMBAR OPTION JIKA ADA -->
+              <span v-if="answer.options_images && answer.options_images[optIndex]" class="option-result-image-wrapper">
+                <img :src="answer.options_images[optIndex]" alt="Option" class="option-result-image" />
+              </span>
               <span class="option-marker">
                 <span v-if="option === answer.correct_answer" class="marker-correct">●</span>
                 <span v-else-if="option === answer.user_answer && option !== answer.correct_answer" class="marker-wrong">●</span>
@@ -115,19 +125,22 @@ export default {
       this.studentName = this.resultData.studentName || 'Akmal';
       this.scorePercentage = this.resultData.score || 50;
       
-      // Format answers untuk ditampilkan
       this.answers = this.resultData.answers || [
         {
           question: 'Tanggal berapa indonesia merdeka',
           options: ['17 Agustus 2000', '17 Agustus 1948', '17 Agustus 1980', '17 Agustus 1975'],
           correct_answer: '17 Agustus 1945',
-          user_answer: '17 Agustus 2000'
+          user_answer: '17 Agustus 2000',
+          question_image: null,
+          options_images: []
         },
         {
           question: 'Siapa presiden ke 3 Indonesia',
-          options: ['Magomati', 'El Nohbire', 'Jokowi', 'Supriatman'],
+          options: ['Megawati', 'B.J. Habibie', 'Jokowi', 'SBY'],
           correct_answer: 'B.J. Habibie',
-          user_answer: 'Magomati'
+          user_answer: 'Megawati',
+          question_image: null,
+          options_images: []
         }
       ];
     }
@@ -306,6 +319,19 @@ export default {
   color: #1e293b;
 }
 
+/* 🔥 GAMBAR SOAL DI HASIL */
+.answer-image-wrapper {
+  margin: 8px 0 8px 20px;
+}
+
+.answer-image {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  object-fit: contain;
+}
+
 .answer-options {
   display: flex;
   flex-direction: column;
@@ -320,6 +346,20 @@ export default {
   font-size: 13px;
   color: #64748b;
   padding: 2px 0;
+}
+
+/* 🔥 GAMBAR OPTION DI HASIL */
+.option-result-image-wrapper {
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.option-result-image {
+  max-width: 30px;
+  max-height: 30px;
+  border-radius: 4px;
+  object-fit: cover;
+  vertical-align: middle;
 }
 
 .option-marker {
@@ -406,6 +446,15 @@ export default {
   
   .answer-options {
     padding-left: 14px;
+  }
+  
+  .answer-image-wrapper {
+    margin-left: 10px;
+  }
+  
+  .answer-image {
+    max-width: 150px;
+    max-height: 120px;
   }
 }
 </style>

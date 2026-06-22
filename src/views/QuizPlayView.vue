@@ -1,22 +1,24 @@
 <template>
   <div class="quiz-play">
     
-    <!-- HEADER: Timer + Progress -->
     <header class="quiz-header">
       <div class="timer-container">
         <div class="timer-circle">
           <span class="timer-text">{{ formattedTime }}</span>
         </div>
       </div>
-      
       <div class="progress-text">
         <span class="question-number">{{ currentIndex + 1 }}/{{ questions.length }}</span>
       </div>
     </header>
 
-    <!-- BODY: Soal -->
     <main class="quiz-body">
       <div class="question-container">
+        <!-- 🔥 GAMBAR SOAL -->
+        <div v-if="currentQuestion?.question_image" class="question-image-wrapper">
+          <img :src="currentQuestion.question_image" alt="Question image" class="question-image" />
+        </div>
+        
         <h2 class="question-text">{{ currentQuestion?.question || 'Loading...' }}</h2>
         
         <div class="options-grid">
@@ -32,16 +34,18 @@
             :disabled="showResult"
             @click="selectOption(index)"
           >
+            <!-- 🔥 GAMBAR OPTION -->
+            <div v-if="currentQuestion?.options_images && currentQuestion.options_images[index]" class="option-image-wrapper">
+              <img :src="currentQuestion.options_images[index]" alt="Option image" class="option-image" />
+            </div>
             <span class="option-text">{{ option }}</span>
           </button>
         </div>
       </div>
     </main>
 
-    <!-- FOOTER: Tombol Submit / Next -->
     <footer class="quiz-footer">
       <div class="footer-actions">
-        <!-- Tombol Submit Answer (muncul sebelum jawaban dikirim) -->
         <button 
           v-if="!showResult"
           class="btn-submit" 
@@ -50,8 +54,6 @@
         >
           Submit Answer
         </button>
-        
-        <!-- Tombol Next (muncul setelah jawaban dikirim) -->
         <button 
           v-else
           class="btn-next" 
@@ -62,7 +64,6 @@
       </div>
     </footer>
 
-    <!-- Modal Hasil Akhir -->
     <div v-if="showResultModal" class="result-modal-overlay" @click.self="closeResult">
       <div class="result-modal">
         <div class="result-icon">{{ scorePercentage >= 70 ? '🎉' : '💪' }}</div>
@@ -121,6 +122,8 @@ export default {
     }
   },
   mounted() {
+    const duration = parseInt(localStorage.getItem('current_quiz_duration')) || 10;
+    this.timeRemaining = duration * 60;
     this.loadQuiz();
     this.startTimer();
   },
@@ -140,9 +143,11 @@ export default {
             id: q.id,
             question: q.question,
             options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+            question_image: q.question_image || null,
+            options_images: q.options_images || [],
             correct_index: q.correct_index !== undefined ? q.correct_index : 0
           }));
-          this.timeRemaining = (data.duration || 10) * 60;
+          this.timeRemaining = (data.total_time || data.duration || 10) * 60;
         } else {
           this.loadMockData();
         }
@@ -155,15 +160,21 @@ export default {
     loadMockData() {
       const savedTitle = localStorage.getItem('current_quiz_title') || 'Quiz';
       const savedQuestions = localStorage.getItem('current_quiz_questions');
+      const savedDuration = parseInt(localStorage.getItem('current_quiz_duration')) || 10;
       
       this.quizTitle = savedTitle;
+      this.timeRemaining = savedDuration * 60;
       
       if (savedQuestions) {
         try {
           const questions = JSON.parse(savedQuestions);
           if (questions && questions.length > 0) {
-            this.questions = questions;
-            this.timeRemaining = 600;
+            this.questions = questions.map(q => ({
+              ...q,
+              question_image: q.question_image || null,
+              options_images: q.options_images || []
+            }));
+            console.log('📚 Loaded questions with images:', this.questions);
             return;
           }
         } catch (e) {
@@ -171,23 +182,24 @@ export default {
         }
       }
       
-      // FALLBACK DATA
       this.questions = [
         {
           id: 1,
           question: 'Tanggal berapa indonesia merdeka',
           options: ['17 Agustus 1945', '17 Agustus 1946', '17 Agustus 1947', '17 Agustus 1944'],
+          question_image: null,
+          options_images: [],
           correct_index: 0
         },
         {
           id: 2,
           question: 'Siapa presiden pertama Indonesia?',
           options: ['Soekarno', 'Soeharto', 'Habibie', 'Gus Dur'],
+          question_image: null,
+          options_images: [],
           correct_index: 0
         }
       ];
-      
-      this.timeRemaining = 600;
     },
 
     startTimer() {
@@ -208,14 +220,12 @@ export default {
     },
 
     selectOption(index) {
-      // Hanya bisa memilih jika belum showResult
       if (!this.showResult) {
         this.selectedAnswer = index;
       }
     },
 
     submitAnswer() {
-      // Validasi: harus pilih jawaban dulu
       if (this.selectedAnswer === null) {
         alert('Silakan pilih jawaban terlebih dahulu!');
         return;
@@ -224,11 +234,9 @@ export default {
       const currentQ = this.currentQuestion;
       const isCorrect = this.selectedAnswer === currentQ.correct_index;
       
-      // Simpan jawaban benar untuk ditampilkan
       this.correctAnswerIndex = currentQ.correct_index;
       this.showResult = true;
       
-      // Simpan riwayat jawaban
       this.answers.push({
         question_id: currentQ.id,
         selected: this.selectedAnswer,
@@ -242,12 +250,10 @@ export default {
     },
 
     nextQuestion() {
-      // Reset state untuk soal berikutnya
       this.showResult = false;
       this.selectedAnswer = null;
       this.correctAnswerIndex = null;
       
-      // Cek apakah ini soal terakhir
       if (this.isLastQuestion) {
         this.finishQuiz();
       } else {
@@ -290,7 +296,6 @@ export default {
   padding: 16px 20px 20px;
 }
 
-/* ===== HEADER ===== */
 .quiz-header {
   display: flex;
   justify-content: space-between;
@@ -333,7 +338,6 @@ export default {
   color: #1e293b;
 }
 
-/* ===== BODY ===== */
 .quiz-body {
   flex: 1;
   display: flex;
@@ -347,6 +351,20 @@ export default {
   width: 100%;
 }
 
+/* 🔥 GAMBAR SOAL */
+.question-image-wrapper {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.question-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  object-fit: contain;
+}
+
 .question-text {
   font-size: 20px;
   font-weight: 500;
@@ -356,7 +374,6 @@ export default {
   text-align: left;
 }
 
-/* ===== OPTIONS ===== */
 .options-grid {
   display: flex;
   flex-direction: column;
@@ -367,6 +384,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 14px 18px;
+  gap: 12px;
   border: 2px solid #e2e8f0;
   border-radius: 10px;
   background: white;
@@ -403,6 +421,20 @@ export default {
   cursor: not-allowed;
 }
 
+/* 🔥 GAMBAR OPTION */
+.option-image-wrapper {
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.option-image {
+  max-width: 40px;
+  max-height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
 .option-text {
   font-size: 15px;
   font-weight: 400;
@@ -424,7 +456,6 @@ export default {
   font-weight: 500;
 }
 
-/* ===== FOOTER ===== */
 .quiz-footer {
   padding: 12px 0 0 0;
   border-top: 1px solid #f1f5f9;
@@ -479,7 +510,6 @@ export default {
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
 }
 
-/* ===== RESULT MODAL ===== */
 .result-modal-overlay {
   position: fixed;
   top: 0;

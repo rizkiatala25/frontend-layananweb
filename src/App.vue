@@ -35,6 +35,7 @@
       v-else-if="currentPage === 'teacher-dashboard'" 
       @logout="handleLogout"
       @create-quiz="handleCreateQuiz"
+      @view-quiz="handleViewQuiz"
     />
 
     <!-- CREATE QUIZ -->
@@ -42,6 +43,14 @@
       v-else-if="currentPage === 'create-quiz'"
       @back="handleQuizBack"
       @quiz-saved="handleQuizSaved"
+      @go-to-preview="handleGoToPreview"
+    />
+
+    <!-- QUIZ PREVIEW -->
+    <QuizPreviewView 
+      v-else-if="currentPage === 'quiz-preview'"
+      @back="handlePreviewBack"
+      @quiz-published="handleQuizPublished"
     />
 
     <!-- HALAMAN PLAY QUIZ -->
@@ -87,6 +96,7 @@ import LoginView from './views/LoginView.vue';
 import StudentDashboardView from './views/StudentDashboardView.vue';
 import TeacherDashboardView from './views/TeacherDashboardView.vue';
 import CreateQuizView from './views/CreateQuizView.vue';
+import QuizPreviewView from './views/QuizPreviewView.vue';
 import QuizPlayView from './views/QuizPlayView.vue';
 import QuizResultView from './views/QuizResultView.vue';
 import TestConnection from './views/TestConnection.vue';
@@ -131,11 +141,19 @@ const handleRoleRouting = () => {
   }
 };
 
+// 🔥 HANDLE LOGOUT
 const handleLogout = async () => {
+  console.log('📌 Logging out...');
   loading.value = true;
-  await authStore.logout();
-  loading.value = false;
-  currentPage.value = 'home';
+  try {
+    await authStore.logout();
+    console.log('✅ Logout successful');
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    loading.value = false;
+    currentPage.value = 'home';
+  }
 };
 
 // ===== CREATE QUIZ =====
@@ -152,6 +170,26 @@ const handleQuizSaved = () => {
   console.log('📌 Quiz saved successfully!');
 };
 
+const handleGoToPreview = () => {
+  currentPage.value = 'quiz-preview';
+};
+
+// ===== QUIZ PREVIEW =====
+const handlePreviewBack = () => {
+  currentPage.value = 'create-quiz';
+};
+
+const handleQuizPublished = (quizData) => {
+  console.log('📌 Quiz published:', quizData);
+  alert(`✅ Quiz "${quizData.title}" berhasil dipublikasikan!`);
+  currentPage.value = 'teacher-dashboard';
+};
+
+// ===== VIEW QUIZ =====
+const handleViewQuiz = (quiz) => {
+  console.log('📌 View quiz:', quiz);
+};
+
 // ===== QUIZ PLAY =====
 const handleStartQuiz = (quizId) => {
   activeQuizId.value = quizId;
@@ -163,10 +201,17 @@ const handleQuizFinish = (result) => {
   console.log('📌 Quiz finished:', result);
   
   let savedQuestions = [];
+  let quizTitle = 'Quiz';
+  let quizEmoji = '📝';
+  
   try {
     const questions = localStorage.getItem('current_quiz_questions');
     if (questions) {
       savedQuestions = JSON.parse(questions);
+    }
+    const title = localStorage.getItem('current_quiz_title');
+    if (title) {
+      quizTitle = title;
     }
   } catch (e) {
     console.error('Error parsing questions:', e);
@@ -185,8 +230,42 @@ const handleQuizFinish = (result) => {
     };
   });
   
+  const quizResult = {
+    title: quizTitle,
+    totalQuestions: result.total || 5,
+    score: result.score || 0,
+    emoji: quizEmoji
+  };
+  
+  localStorage.setItem('quiz_result', JSON.stringify(quizResult));
+  
+  const studentName = authStore.user?.full_name || localStorage.getItem('user_name') || 'Student';
+  const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
+  const quizId = activeQuizId.value;
+  
+  if (!quizResults[quizId]) {
+    quizResults[quizId] = [];
+  }
+  
+  quizResults[quizId].push({
+    studentName: studentName,
+    score: result.score || 0,
+    correct: result.correct || 0,
+    total: result.total || 5,
+    date: new Date().toLocaleDateString('id-ID', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }),
+    answers: formattedAnswers
+  });
+  
+  localStorage.setItem('quiz_results', JSON.stringify(quizResults));
+  
   quizResultData.value = {
-    studentName: authStore.user?.full_name || localStorage.getItem('user_name') || 'Student',
+    studentName: studentName,
     score: result.score || 0,
     totalQuestions: result.total || 5,
     answers: formattedAnswers

@@ -19,9 +19,6 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    /**
-     * Login user
-     */
     async login(username, password) {
       this.loading = true;
       this.error = null;
@@ -35,49 +32,15 @@ export const useAuthStore = defineStore('auth', {
           const userData = response.data.user;
           const token = response.data.token;
           
-          // 🔥🔥🔥 DAFTAR USERNAME TEACHER 🔥🔥🔥
-          const teacherUsernames = [
-            'teacher', 
-            'guru', 
-            'admin', 
-            'budi_guru',
-            'akmal'
-          ];
-          
-          // 🔥 TENTUKAN ROLE DARI USERNAME
-          let userRole = 'student';
-          let fullName = 'Student User';
-          
-          // CEK APAKAH USERNAME TERMASUK TEACHER
-          if (teacherUsernames.includes(username.toLowerCase())) {
-            userRole = 'teacher';
-            fullName = 'Teacher User';
-          } else {
-            userRole = 'student';
-            fullName = username.charAt(0).toUpperCase() + username.slice(1) + ' User';
-          }
-          
-          // 🔥 OVERRIDE DATA DARI BACKEND
-          userData.role = userRole;
-          userData.full_name = fullName;
-          
-          console.log('📌 Final role (after override):', userRole);
-          console.log('📌 Final user data:', userData);
-          
-          // 🔥 SIMPAN KE STATE
           this.token = token;
           this.user = userData;
-          this.role = userRole;
+          this.role = userData.role;
           this.isAuthenticated = true;
           
-          // 🔥 SIMPAN KE LOCALSTORAGE
           localStorage.setItem('auth_token', token);
-          localStorage.setItem('user_role', userRole);
+          localStorage.setItem('user_role', userData.role);
           localStorage.setItem('user_data', JSON.stringify(userData));
-          localStorage.setItem('user_name', fullName);
-          
-          console.log('✅ Role saved to localStorage:', userRole);
-          console.log('✅ Name saved to localStorage:', fullName);
+          localStorage.setItem('user_name', userData.full_name || userData.name || username);
           
           return { success: true, data: response.data };
         }
@@ -93,26 +56,42 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    /**
-     * Register user
-     */
-    async register(userData) {
+    // 🔥 REGISTER ONLY (TANPA AUTO LOGIN)
+    async registerOnly(userData) {
       this.loading = true;
       this.error = null;
       
       try {
+        console.log('📤 Register data to API:', userData);
+        
         const response = await authApi.register(userData);
         
-        if (response.status) {
-          // Auto login setelah register
-          const loginResult = await this.login(userData.username, userData.password);
-          return loginResult;
+        console.log('📥 Register response:', response);
+        
+        if (response.status === true) {
+          return { 
+            success: true, 
+            data: response.data,
+            message: response.message || 'Registrasi berhasil'
+          };
         }
         
-        return { success: false, message: response.message || 'Registrasi gagal' };
+        return { 
+          success: false, 
+          message: response.message || 'Registrasi gagal' 
+        };
       } catch (error) {
         console.error('Register error:', error);
-        const message = error.response?.data?.message || error.message || 'Terjadi kesalahan saat registrasi';
+        
+        let message = 'Terjadi kesalahan saat registrasi';
+        if (error.response?.data?.message) {
+          message = error.response.data.message;
+        }
+        if (error.response?.data?.errors) {
+          const errors = Object.values(error.response.data.errors).flat().join(', ');
+          message = errors;
+        }
+        
         this.error = message;
         return { success: false, message };
       } finally {
@@ -120,22 +99,28 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    /**
-     * Logout user
-     */
+    // 🔥 REGISTER + AUTO LOGIN (untuk keperluan lain jika dibutuhkan)
+    async register(userData) {
+      const result = await this.registerOnly(userData);
+      if (result.success) {
+        // Auto login setelah register
+        const loginResult = await this.login(userData.username, userData.password);
+        return loginResult;
+      }
+      return result;
+    },
+
     async logout() {
       try {
         await authApi.logout();
       } catch (error) {
         console.error('Logout error:', error);
       } finally {
-        // Clear state
         this.user = null;
         this.token = null;
         this.role = null;
         this.isAuthenticated = false;
         
-        // Clear localStorage
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_role');
         localStorage.removeItem('user_data');
@@ -143,16 +128,10 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    /**
-     * Load user data from localStorage
-     */
     loadUserFromStorage() {
       const token = localStorage.getItem('auth_token');
       const role = localStorage.getItem('user_role');
       const userData = localStorage.getItem('user_data');
-      
-      console.log('📌 Loading from storage - token:', token);
-      console.log('📌 Loading from storage - role:', role);
       
       if (token && role) {
         this.token = token;
@@ -162,21 +141,11 @@ export const useAuthStore = defineStore('auth', {
         if (userData) {
           try {
             this.user = JSON.parse(userData);
-            console.log('📌 User loaded from storage:', this.user);
           } catch (e) {
             console.error('Error parsing user data:', e);
           }
         }
       }
-    },
-
-    /**
-     * Set role manually (for testing)
-     */
-    setRole(role) {
-      this.role = role;
-      localStorage.setItem('user_role', role);
-      console.log('📌 Role manually set to:', role);
     }
   }
 });
