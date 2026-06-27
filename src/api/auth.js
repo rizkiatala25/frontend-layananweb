@@ -1,27 +1,45 @@
 import api from './index';
 
 export const authApi = {
-  async login(username, password) {
-    const response = await api.post('/auth/login', { 
+  // 🔥 LOGIN SISWA
+  async loginSiswa(username, password) {
+    const response = await api.post('/api/login/siswa', { 
       username, 
       password 
     });
     return response.data;
   },
 
-  async register(userData) {
-    console.log('📤 Sending to backend:', userData);
-    const response = await api.post('/auth/register', userData);
+  // 🔥 LOGIN GURU
+  async loginGuru(username, password) {
+    const response = await api.post('/api/login/guru', { 
+      username, 
+      password 
+    });
     return response.data;
   },
 
+  // 🔥 REGISTER SISWA
+  async registerSiswa(userData) {
+    const response = await api.post('/api/register/siswa', userData);
+    return response.data;
+  },
+
+  // 🔥 REGISTER GURU
+  async registerGuru(userData) {
+    const response = await api.post('/api/register/guru', userData);
+    return response.data;
+  },
+
+  // 🔥 LOGOUT
   async logout() {
-    const response = await api.post('/auth/logout');
+    const response = await api.post('/api/logout');
     return response.data;
   },
 
+  // 🔥 GET PROFILE
   async getProfile() {
-    const response = await api.get('/user/profile');
+    const response = await api.get('/api/profile');
     return response.data;
   }
 };

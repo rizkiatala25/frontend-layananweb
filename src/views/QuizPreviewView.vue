@@ -66,6 +66,7 @@
       </button>
     </section>
 
+    <!-- MODAL PUBLISH -->
     <div v-if="showPublishModal" class="modal-overlay" @click.self="showPublishModal = false">
       <div class="modal-card">
         <h2 class="modal-title">Publish Quiz</h2>
@@ -235,12 +236,15 @@ export default {
         this.quizTitle = 'Untitled Quiz';
       }
     },
+    
     calculateStats() {
       this.totalPoints = this.questions.reduce((sum, q) => sum + (q.points || 1), 0);
     },
+    
     updateTitle() {
       console.log('📝 Title updated:', this.quizTitle);
     },
+    
     deleteQuestion(index) {
       if (confirm('Hapus pertanyaan ini?')) {
         this.questions.splice(index, 1);
@@ -251,13 +255,16 @@ export default {
         }
       }
     },
+    
     editQuestion(index) {
       localStorage.setItem('edit_question_index', index);
       this.$emit('back');
     },
+    
     addQuestion() {
       this.$emit('back');
     },
+    
     openPublishModal() {
       if (this.questions.length === 0) {
         alert('Tidak ada pertanyaan untuk dipublish. Tambahkan pertanyaan terlebih dahulu!');
@@ -265,9 +272,11 @@ export default {
       }
       this.showPublishModal = true;
     },
+    
     triggerFileInput() {
       this.$refs.fileInput.click();
     },
+    
     handleCoverUpload(event) {
       const file = event.target.files[0];
       if (file) {
@@ -282,10 +291,13 @@ export default {
         reader.readAsDataURL(file);
       }
     },
+    
     removeCover() {
       this.coverImage = null;
       this.$refs.fileInput.value = '';
     },
+    
+    // 🔥 PUBLISH QUIZ - DIPERBAIKI
     publishQuiz() {
       if (!this.quizTitle.trim()) {
         alert('Please enter a quiz title');
@@ -301,16 +313,17 @@ export default {
       }
       
       const joinCode = this.generateJoinCode();
+      const quizId = Date.now();
       
-      // 🔥 PASTIKAN GAMBAR TERBAWA
+      // 🔥 1. BUAT DATA QUIZ LENGKAP
       const quizData = {
-        id: Date.now(),
+        id: quizId,
         title: this.quizTitle,
         subject: this.selectedSubject,
         cover_image: this.coverImage,
         visibility: this.visibility,
         questions: this.questions.map(q => ({
-          id: q.id,
+          id: q.id || Date.now() + Math.random(),
           question: q.question,
           question_image: q.question_image || null,
           options: q.options || [],
@@ -321,43 +334,55 @@ export default {
         total_points: this.totalPoints,
         total_time: this.totalDuration,
         created_at: new Date().toISOString(),
-        join_code: joinCode
+        join_code: joinCode,
+        synced: false
       };
       
-      console.log('📤 Publishing quiz with images:', quizData);
+      console.log('📤 Publishing quiz:', quizData);
       
-      // Simpan ke published quizzes
+      // 🔥 2. SIMPAN KE PUBLISHED QUIZZES
       let publishedQuizzes = JSON.parse(localStorage.getItem('published_quizzes') || '[]');
       publishedQuizzes.push(quizData);
       localStorage.setItem('published_quizzes', JSON.stringify(publishedQuizzes));
       console.log('✅ Saved to published_quizzes:', publishedQuizzes.length);
       
-      // Simpan ke shared quizzes
+      // 🔥 3. SIMPAN KE SHARED QUIZZES (AGAR MUNCUL DI SISWA)
+      // 🔥 INI YANG PALING PENTING!
       if (this.visibility === 'publish') {
         let sharedQuizzes = JSON.parse(localStorage.getItem('shared_quizzes') || '[]');
         
-        const sharedQuiz = {
-          id: quizData.id,
-          title: quizData.title,
-          total_questions: quizData.questions.length,
-          emoji: this.getEmojiForSubject(quizData.subject),
-          description: `Quiz ${quizData.subject}`,
-          duration: quizData.total_time || 10,
-          join_code: joinCode,
-          cover_image: this.coverImage,
-          questions: quizData.questions // 🔥 KIRIM QUESTIONS LENGKAP
-        };
-        
-        sharedQuizzes.push(sharedQuiz);
-        localStorage.setItem('shared_quizzes', JSON.stringify(sharedQuizzes));
-        console.log('✅ Saved to shared_quizzes with questions:', sharedQuizzes.length);
-        console.log('📋 Join code:', joinCode);
+        // Cek apakah sudah ada
+        const existing = sharedQuizzes.find(q => q.id === quizId);
+        if (!existing) {
+          const sharedQuiz = {
+            id: quizData.id,
+            title: quizData.title,
+            total_questions: quizData.questions.length,
+            emoji: this.getEmojiForSubject(quizData.subject),
+            description: `Quiz ${quizData.subject}`,
+            duration: quizData.total_time || 10,
+            join_code: joinCode,
+            cover_image: this.coverImage,
+            questions: quizData.questions, // Kirim questions lengkap
+            visibility: 'publish',
+            created_at: new Date().toISOString()
+          };
+          
+          sharedQuizzes.push(sharedQuiz);
+          localStorage.setItem('shared_quizzes', JSON.stringify(sharedQuizzes));
+          console.log('✅ Saved to shared_quizzes with questions:', sharedQuizzes.length);
+          console.log('📋 Join code:', joinCode);
+        }
       }
       
       this.showPublishModal = false;
-      alert(`✅ Quiz "${this.quizTitle}" berhasil dipublikasikan!\n📋 Join Code: ${joinCode}\n⏱️ Duration: ${this.totalDuration} minutes`);
+      
+      const message = `✅ Quiz "${this.quizTitle}" berhasil dipublikasikan!\n\n📋 Join Code: ${joinCode}\n⏱️ Duration: ${this.totalDuration} minutes\n📚 Questions: ${this.questions.length}\n👥 Students can now see this quiz in their dashboard.`;
+      alert(message);
+      
       this.$emit('quiz-published', quizData);
     },
+    
     generateJoinCode() {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let code = '';
@@ -366,6 +391,7 @@ export default {
       }
       return code;
     },
+    
     getEmojiForSubject(subject) {
       const emojis = {
         'Matematika': '📐',
@@ -381,6 +407,7 @@ export default {
       };
       return emojis[subject] || '📝';
     },
+    
     goBack() {
       this.$emit('back');
     }
@@ -389,6 +416,7 @@ export default {
 </script>
 
 <style scoped>
+/* ... style sama seperti sebelumnya ... */
 * {
   margin: 0;
   padding: 0;

@@ -20,25 +20,77 @@
     <!-- ===== BODY ===== -->
     <main class="page-body">
       
+      <!-- QUIZ SETTINGS -->
+      <div class="quiz-settings">
+        <div class="settings-row">
+          <div class="setting-item">
+            <label>Quiz Title</label>
+            <input type="text" v-model="quizTitle" placeholder="Enter quiz title" class="setting-input" />
+          </div>
+          <div class="setting-item">
+            <label>Subject</label>
+            <select v-model="selectedSubject" class="setting-select">
+              <option value="">Select subject</option>
+              <option value="Matematika">📐 Matematika</option>
+              <option value="Bahasa Indonesia">🇮🇩 Bahasa Indonesia</option>
+              <option value="Bahasa Inggris">🇬🇧 Bahasa Inggris</option>
+              <option value="IPA">🔬 IPA</option>
+              <option value="IPS">🌍 IPS</option>
+              <option value="Sejarah">📜 Sejarah</option>
+              <option value="PKN">🦅 PKN</option>
+              <option value="Seni Budaya">🎭 Seni Budaya</option>
+              <option value="Agama">📖 Agama</option>
+              <option value="Penjaskes">⚽ Penjaskes</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 🔥 DURASI & POIN SEJAJAR -->
+        <div class="settings-row">
+          <div class="setting-item">
+            <label>Duration (minutes)</label>
+            <input type="number" v-model="totalDuration" min="1" max="120" class="setting-input" />
+          </div>
+          <div class="setting-item">
+            <label>Points per Question</label>
+            <div class="points-wrapper">
+              <button class="points-btn" @click="decreasePoints">−</button>
+              <span class="points-value">{{ points }}</span>
+              <button class="points-btn" @click="increasePoints">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cover Image Upload -->
+        <div class="cover-upload" @click="triggerCoverUpload">
+          <div v-if="coverImage" class="cover-preview">
+            <img :src="coverImage" alt="Cover" />
+            <button class="btn-remove-cover" @click.stop="removeCover">✕</button>
+          </div>
+          <div v-else class="cover-placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>Click to upload cover image</span>
+            <span class="cover-hint">Supported: JPG, PNG, GIF (Max 2MB)</span>
+          </div>
+          <input type="file" ref="coverInput" accept="image/*" @change="handleCoverUpload" style="display: none" />
+        </div>
+      </div>
+
+      <!-- Question Type -->
       <div class="question-type">
         <span class="type-label">Multiple Choice</span>
       </div>
 
+      <!-- Save Question Button -->
       <div class="settings-row">
-        <div class="setting-item">
-          <span class="setting-label">{{ points }} Poin</span>
-          <button class="setting-dropdown" @click="togglePointsDropdown">▼</button>
-          <div v-if="showPointsDropdown" class="dropdown-menu">
-            <div @click="setPoints(1)">1 Poin</div>
-            <div @click="setPoints(2)">2 Poin</div>
-            <div @click="setPoints(3)">3 Poin</div>
-            <div @click="setPoints(5)">5 Poin</div>
-            <div @click="setPoints(10)">10 Poin</div>
-          </div>
-        </div>
         <button class="btn-save-question" @click="saveQuestion">Save Question</button>
       </div>
 
+      <!-- Question Input -->
       <div class="question-input-area">
         <div class="question-editor">
           <div class="editor-toolbar">
@@ -48,15 +100,6 @@
             <button class="toolbar-btn" title="Strikethrough" @click="applyFormat('strike')"><s>S</s></button>
             <button class="toolbar-btn" title="Insert Image" @click="openImageModal('question')">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-            </button>
-            <button class="toolbar-btn" title="Insert Video">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-            </button>
-            <button class="toolbar-btn" title="Equation">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16"></path><path d="M4 12h10"></path><path d="M4 17h16"></path></svg>
-            </button>
-            <button class="toolbar-btn" title="More">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
             </button>
           </div>
           <div class="question-textarea">
@@ -74,6 +117,7 @@
         </div>
       </div>
 
+      <!-- Options -->
       <div class="options-area" :class="{ horizontal: layout === 'horizontal' }">
         <div 
           v-for="(option, index) in options" 
@@ -105,6 +149,15 @@
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </button>
+          <!-- 🔥 TOMBOL HAPUS OPSI -->
+          <button 
+            v-if="options.length > 2"
+            class="btn-remove-option" 
+            @click="removeOption(index)"
+            title="Remove option"
+          >
+            ✕
+          </button>
         </div>
       </div>
 
@@ -120,12 +173,14 @@
         </button>
       </div>
 
+      <!-- Saved Questions Counter -->
       <div v-if="savedQuestions.length > 0" class="questions-counter">
         <p>{{ savedQuestions.length }} question(s) saved</p>
       </div>
 
     </main>
 
+    <!-- ===== IMAGE MODAL ===== -->
     <div v-if="showImageModal" class="modal-overlay" @click.self="showImageModal = false">
       <div class="modal-card">
         <h3>Insert Image</h3>
@@ -141,35 +196,100 @@
 </template>
 
 <script>
+import { useQuizStore } from '@/stores/quizStore.js';
+
 export default {
   name: 'CreateQuizView',
   emits: ['back', 'quiz-saved', 'go-to-preview'],
   data() {
     return {
+      // Quiz Settings
+      quizTitle: '',
+      selectedSubject: '',
+      totalDuration: 10,
+      coverImage: null,
+      
+      // Question
       questionText: '',
       points: 1,
       layout: 'vertical',
       options: [
-        { text: '', isCorrect: true, image: null },
+        { text: '', isCorrect: false, image: null },
         { text: '', isCorrect: false, image: null },
         { text: '', isCorrect: false, image: null },
         { text: '', isCorrect: false, image: null }
       ],
       savedQuestions: [],
+      questionImage: null,
       
+      // UI
       showImageModal: false,
       imageTarget: null,
       imageTargetIndex: null,
-      imageFile: null,
-      questionImage: null,
-      
-      showPointsDropdown: false
+      imageFile: null
     };
   },
   methods: {
+    // ===== BACK =====
+    goBack() {
+      if (this.savedQuestions.length > 0) {
+        if (confirm('You have unsaved questions. Are you sure you want to leave?')) {
+          this.$emit('back');
+        }
+      } else {
+        this.$emit('back');
+      }
+    },
+
+    // ===== QUIZ SETTINGS =====
+    triggerCoverUpload() {
+      this.$refs.coverInput.click();
+    },
+    handleCoverUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        if (file.size > 2 * 1024 * 1024) {
+          alert('Ukuran gambar terlalu besar! Maksimal 2MB.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.coverImage = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    },
+    removeCover() {
+      this.coverImage = null;
+      this.$refs.coverInput.value = '';
+    },
+
+    // ===== POINTS =====
+    increasePoints() {
+      if (this.points < 20) this.points++;
+    },
+    decreasePoints() {
+      if (this.points > 1) this.points--;
+    },
+
+    // ===== OPTIONS =====
     addOption() {
-      if (this.options.length < 6) {
+      if (this.options.length < 8) {
         this.options.push({ text: '', isCorrect: false, image: null });
+      }
+    },
+    removeOption(index) {
+      if (this.options.length <= 2) {
+        alert('Minimal 2 opsi!');
+        return;
+      }
+      if (confirm('Hapus opsi ini?')) {
+        this.options.splice(index, 1);
+        // Jika opsi yang dihapus adalah jawaban benar, set ulang
+        const hasCorrect = this.options.some(opt => opt.isCorrect);
+        if (!hasCorrect && this.options.length > 0) {
+          this.options[0].isCorrect = true;
+        }
       }
     },
     setCorrectAnswer(index) {
@@ -179,13 +299,8 @@ export default {
     toggleLayout() {
       this.layout = this.layout === 'vertical' ? 'horizontal' : 'vertical';
     },
-    togglePointsDropdown() {
-      this.showPointsDropdown = !this.showPointsDropdown;
-    },
-    setPoints(value) {
-      this.points = value;
-      this.showPointsDropdown = false;
-    },
+
+    // ===== FORMAT TEXT =====
     applyFormat(format) {
       const textarea = document.querySelector('.question-input');
       if (!textarea) return;
@@ -205,6 +320,8 @@ export default {
       
       this.questionText = this.questionText.substring(0, start) + formattedText + this.questionText.substring(end);
     },
+
+    // ===== IMAGE =====
     openImageModal(target, index = null) {
       this.imageTarget = target;
       this.imageTargetIndex = index;
@@ -241,6 +358,8 @@ export default {
     removeOptionImage(index) {
       this.options[index].image = null;
     },
+
+    // ===== SAVE QUESTION =====
     saveQuestion() {
       if (!this.questionText.trim()) {
         alert('Please enter a question');
@@ -272,6 +391,7 @@ export default {
       this.savedQuestions.push(questionData);
       alert(`✅ Question saved! (${this.savedQuestions.length} total)`);
       
+      // Reset
       this.questionText = '';
       this.questionImage = null;
       this.options = [
@@ -282,48 +402,57 @@ export default {
       ];
       this.options[0].isCorrect = true;
     },
-    saveQuiz() {
+
+    // ===== SAVE QUIZ =====
+    async saveQuiz() {
       if (this.savedQuestions.length === 0) {
         alert('Please save at least one question first!');
         return;
       }
       
-      const quizData = this.savedQuestions.map(q => ({
-        id: q.id || Date.now(),
-        question: q.question || 'No question',
-        question_image: q.question_image || null,
-        options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-        options_images: q.options_images || [],
-        correct_index: q.correct_index || 0,
-        points: q.points || 1
-      }));
-      
-      localStorage.setItem('saved_quiz', JSON.stringify(quizData));
-      console.log('📚 Quiz saved with images:', quizData);
-      
-      this.$emit('go-to-preview');
-    },
-    goBack() {
-      if (this.savedQuestions.length > 0) {
-        if (confirm('You have unsaved questions. Are you sure you want to leave?')) {
-          this.$emit('back');
-        }
-      } else {
-        this.$emit('back');
+      if (!this.quizTitle.trim()) {
+        alert('Please enter a quiz title');
+        return;
       }
-    },
-    handleClickOutside(event) {
-      if (!event.target.closest('.setting-item')) {
-        this.showPointsDropdown = false;
+      
+      if (!this.selectedSubject) {
+        alert('Please select a subject');
+        return;
+      }
+      
+      const quizData = {
+        title: this.quizTitle,
+        subject: this.selectedSubject,
+        cover_image: this.coverImage,
+        total_time: this.totalDuration,
+        questions: this.savedQuestions.map(q => ({
+          question: q.question,
+          question_image: q.question_image || null,
+          options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+          options_images: q.options_images || [],
+          correct_index: q.correct_index || 0,
+          points: q.points || 1
+        }))
+      };
+      
+      try {
+        const quizStore = useQuizStore();
+        const result = await quizStore.createQuiz(quizData);
+        
+        if (result.success) {
+          console.log('📚 Quiz saved:', result.data);
+          this.$emit('go-to-preview');
+        } else {
+          alert('❌ Gagal menyimpan quiz: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Error saving quiz:', error);
+        alert('❌ Gagal menyimpan quiz. Silakan coba lagi.');
       }
     }
   },
   mounted() {
     this.options[0].isCorrect = true;
-    document.addEventListener('click', this.handleClickOutside);
-  },
-  beforeUnmount() {
-    document.removeEventListener('click', this.handleClickOutside);
   }
 };
 </script>
@@ -344,6 +473,7 @@ export default {
   flex-direction: column;
 }
 
+/* HEADER */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -402,6 +532,7 @@ export default {
   transform: translateY(-2px);
 }
 
+/* BODY */
 .page-body {
   flex: 1;
   padding-top: 20px;
@@ -410,6 +541,169 @@ export default {
   width: 100%;
 }
 
+/* QUIZ SETTINGS */
+.quiz-settings {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.settings-row:last-child {
+  margin-bottom: 0;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.setting-item label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.setting-input, .setting-select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Poppins', sans-serif;
+  background: white;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.setting-input:focus, .setting-select:focus {
+  border-color: #6c5ce7;
+}
+
+/* POINTS */
+.points-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.points-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.points-btn:hover {
+  background: #e2e8f0;
+}
+
+.points-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  min-width: 30px;
+  text-align: center;
+}
+
+/* COVER UPLOAD */
+.cover-upload {
+  margin-top: 12px;
+  cursor: pointer;
+  border: 2px dashed #e2e8f0;
+  border-radius: 10px;
+  transition: all 0.2s;
+  overflow: hidden;
+}
+
+.cover-upload:hover {
+  border-color: #6c5ce7;
+}
+
+.cover-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  color: #94a3b8;
+}
+
+.cover-placeholder svg {
+  stroke: #94a3b8;
+}
+
+.cover-placeholder span {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cover-hint {
+  font-size: 11px !important;
+  color: #cbd5e1 !important;
+  font-weight: 400 !important;
+}
+
+.cover-preview {
+  position: relative;
+  width: 100%;
+}
+
+.cover-preview img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.btn-remove-cover {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-remove-cover:hover {
+  background: #dc2626;
+  transform: scale(1.1);
+}
+
+/* QUESTION TYPE */
 .question-type {
   margin-bottom: 16px;
 }
@@ -420,67 +714,8 @@ export default {
   color: #1e293b;
 }
 
-.settings-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  position: relative;
-}
-
-.setting-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
-  position: relative;
-}
-
-.setting-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1e293b;
-}
-
-.setting-dropdown {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #94a3b8;
-  font-size: 12px;
-  padding: 0 4px;
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  z-index: 100;
-  min-width: 100px;
-  margin-top: 4px;
-}
-
-.dropdown-menu div {
-  padding: 8px 16px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: background 0.2s;
-}
-
-.dropdown-menu div:hover {
-  background: #f1f5f9;
-}
-
 .btn-save-question {
-  padding: 6px 20px;
+  padding: 8px 24px;
   background: #6c5ce7;
   color: white;
   border: none;
@@ -490,13 +725,13 @@ export default {
   font-family: 'Poppins', sans-serif;
   cursor: pointer;
   transition: all 0.3s;
-  margin-left: auto;
 }
 
 .btn-save-question:hover {
   background: #5a4bd1;
 }
 
+/* QUESTION INPUT */
 .question-input-area {
   margin-bottom: 24px;
   border: 1px solid #e2e8f0;
@@ -590,6 +825,7 @@ export default {
   justify-content: center;
 }
 
+/* OPTIONS */
 .options-area {
   display: flex;
   flex-direction: column;
@@ -606,7 +842,7 @@ export default {
 .option-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 8px 12px;
   border: 2px solid #e2e8f0;
   border-radius: 10px;
@@ -640,7 +876,7 @@ export default {
   font-family: 'Poppins', sans-serif;
   color: #1e293b;
   background: transparent;
-  min-width: 80px;
+  min-width: 60px;
 }
 
 .option-input::placeholder {
@@ -717,6 +953,24 @@ export default {
   color: white;
 }
 
+/* 🔥 TOMBOL HAPUS OPSI */
+.btn-remove-option {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-remove-option:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* ADD OPTION */
 .btn-add-option {
   display: flex;
   align-items: center;
@@ -741,6 +995,7 @@ export default {
   background: #f8f7ff;
 }
 
+/* LAYOUT SWITCH */
 .layout-switch {
   margin-top: 20px;
   display: flex;
@@ -767,6 +1022,7 @@ export default {
   color: #1e293b;
 }
 
+/* QUESTIONS COUNTER */
 .questions-counter {
   margin-top: 16px;
   padding: 12px 16px;
@@ -781,6 +1037,7 @@ export default {
   margin: 0;
 }
 
+/* MODAL */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -860,11 +1117,11 @@ export default {
   }
   
   .settings-row {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
   }
   
   .btn-save-question {
-    margin-left: 0;
     width: 100%;
   }
   
@@ -874,6 +1131,10 @@ export default {
   
   .header-title {
     font-size: 16px;
+  }
+  
+  .points-wrapper {
+    justify-content: center;
   }
 }
 </style>

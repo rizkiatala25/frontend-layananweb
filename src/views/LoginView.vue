@@ -7,7 +7,7 @@
       </div>
     </header>
 
-    <div class="background-decorations">
+    <div class="background-decorations" style="pointer-events: none;">
       <div class="curve-left"></div>
       <div class="curve-right"></div>
     </div>
@@ -21,14 +21,28 @@
 
         <h1 class="form-title">Login</h1>
 
-        <div class="role-indicator">
-          <span class="role-badge" :class="role">
-            {{ role === 'teacher' ? '👨‍🏫 Teacher' : '🎓 Student' }}
-          </span>
+        <div class="role-selector">
+          <button 
+            type="button"
+            class="role-btn"
+            :class="{ active: selectedRole === 'siswa' }"
+            @click="selectedRole = 'siswa'"
+          >
+            🎓 Student
+          </button>
+          <button 
+            type="button"
+            class="role-btn"
+            :class="{ active: selectedRole === 'guru' }"
+            @click="selectedRole = 'guru'"
+          >
+            👨‍🏫 Teacher
+          </button>
         </div>
 
+        <!-- 🔥 TAMPILKAN ERROR DENGAN JELAS -->
         <div v-if="errorMessage" class="error-message">
-          {{ errorMessage }}
+          <strong>❌ {{ errorMessage }}</strong>
         </div>
 
         <form @submit.prevent="handleLogin">
@@ -40,6 +54,7 @@
               v-model="formData.username" 
               placeholder="Username" 
               required
+              autofocus
             />
           </div>
 
@@ -70,13 +85,8 @@
             </div>
           </div>
 
-          <div class="remember-me-group">
-            <input type="checkbox" id="rememberMe" v-model="formData.rememberMe" />
-            <label for="rememberMe">Ingat Password</label>
-          </div>
-
           <button type="submit" class="btn-login-submit" :disabled="loading">
-            {{ loading ? 'Memproses...' : 'Login' }}
+            {{ loading ? '⏳ Memproses...' : 'Login' }}
           </button>
         </form>
 
@@ -99,13 +109,13 @@ export default {
   props: {
     initialRole: {
       type: String,
-      default: 'student'
+      default: 'siswa'
     }
   },
-  emits: ['navigate-to-quiz', 'navigate-to-signup', 'navigate-to-home'],
+  emits: ['navigate-to-signup'],
   data() {
     return {
-      role: this.initialRole || 'student',
+      selectedRole: this.initialRole || 'siswa',
       formData: {
         username: '',
         password: '',
@@ -118,8 +128,7 @@ export default {
   },
   watch: {
     initialRole(newRole) {
-      this.role = newRole;
-      console.log('📌 LoginView - role changed to:', newRole);
+      this.selectedRole = newRole;
     }
   },
   methods: {
@@ -130,33 +139,48 @@ export default {
       try {
         const authStore = useAuthStore();
         
-        console.log('📌 LoginView - attempting login with username:', this.formData.username);
+        console.log('📌 Login - username:', this.formData.username);
+        console.log('📌 Login - role:', this.selectedRole);
         
         const result = await authStore.login(
           this.formData.username,
-          this.formData.password
+          this.formData.password,
+          this.selectedRole
         );
         
-        console.log('📌 LoginView - login result:', result);
+        console.log('📌 Login result:', result);
         
         if (result.success) {
-          // 🔥 AMBIL ROLE DARI STORE
-          const userRole = authStore.role;
-          console.log('📌 LoginView - role from store after login:', userRole);
+          const userRole = authStore.role || localStorage.getItem('user_role');
+          console.log('📌 Final role:', userRole);
           
-          // 🔥 PASTIKAN ROLE TERSIMPAN
-          if (userRole) {
-            localStorage.setItem('user_role', userRole);
+          // 🔥 REDIRECT BERDASARKAN ROLE
+          if (userRole === 'guru' || userRole === 'teacher') {
+            console.log('✅ Redirect ke Teacher Dashboard');
+            window.location.href = 'http://localhost:3001/teacher-dashboard';
+          } else if (userRole === 'siswa' || userRole === 'student') {
+            console.log('✅ Redirect ke Student Dashboard');
+            window.location.href = 'http://localhost:3001/student-dashboard';
+          } else {
+            console.log('⚠️ Role tidak dikenal:', userRole);
+            window.location.href = 'http://localhost:3001/';
           }
-          
-          // 🔥 REDIRECT
-          this.$emit('navigate-to-quiz');
         } else {
+          // 🔥 TAMPILKAN ERROR, JANGAN REDIRECT
           this.errorMessage = result.message || 'Login gagal. Silakan cek username dan password Anda.';
+          console.log('❌ Login error:', this.errorMessage);
         }
       } catch (error) {
-        console.error('Login error:', error);
-        this.errorMessage = 'Terjadi kesalahan. Silakan coba lagi.';
+        console.error('❌ Login error:', error);
+        
+        // 🔥 TAMPILKAN ERROR DETAIL
+        if (error.response?.status === 401) {
+          this.errorMessage = '❌ Username atau password salah! Silakan coba lagi.';
+        } else if (error.message === 'Network Error') {
+          this.errorMessage = '❌ Tidak dapat terhubung ke server. Pastikan backend berjalan.';
+        } else {
+          this.errorMessage = error.response?.data?.message || error.message || 'Terjadi kesalahan. Silakan coba lagi.';
+        }
       } finally {
         this.loading = false;
       }
@@ -218,7 +242,7 @@ export default {
   height: 100%;
   top: 0;
   left: 0;
-  pointer-events: none;
+  pointer-events: none !important;
   z-index: 1;
 }
 
@@ -231,6 +255,7 @@ export default {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 50% 50% 0 0;
   transform: rotate(-15deg);
+  pointer-events: none !important;
 }
 
 .curve-right {
@@ -242,6 +267,7 @@ export default {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0 0 50% 50%;
   transform: rotate(-25deg);
+  pointer-events: none !important;
 }
 
 .login-main {
@@ -262,6 +288,8 @@ export default {
   padding: 40px 35px;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
   border: 2px solid #00c2ff;
+  position: relative;
+  z-index: 10;
 }
 
 .card-logo-center {
@@ -295,32 +323,41 @@ export default {
   letter-spacing: 0.5px;
 }
 
-.role-indicator {
-  text-align: center;
-  margin-bottom: 25px;
+.role-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-.role-badge {
-  display: inline-block;
-  padding: 6px 20px;
-  border-radius: 20px;
-  font-size: 13px;
+.role-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
   font-weight: 500;
+  transition: all 0.2s;
+  color: #64748b;
 }
 
-.role-badge.student {
-  background: #dbeafe;
-  color: #1d4ed8;
+.role-btn:hover {
+  border-color: #cbd5e1;
 }
 
-.role-badge.teacher {
-  background: #fce7f3;
-  color: #be185d;
+.role-btn.active {
+  border-color: #7468f3;
+  background: #f0edff;
+  color: #7468f3;
 }
 
 .input-group {
   margin-bottom: 20px;
   text-align: left;
+  position: relative;
+  z-index: 20;
 }
 
 .input-group label {
@@ -342,6 +379,8 @@ export default {
   box-sizing: border-box;
   font-family: 'Poppins', sans-serif;
   transition: border-color 0.3s ease;
+  position: relative;
+  z-index: 20;
 }
 
 .input-group input:focus {
@@ -352,6 +391,7 @@ export default {
 
 .password-wrapper {
   position: relative;
+  z-index: 20;
 }
 
 .toggle-visibility {
@@ -367,33 +407,11 @@ export default {
   align-items: center;
   padding: 0;
   transition: color 0.2s ease;
+  z-index: 30;
 }
 
 .toggle-visibility:hover {
   color: #7468f3;
-}
-
-.remember-me-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 25px;
-  text-align: left;
-}
-
-.remember-me-group input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: #7468f3;
-  border-radius: 4px;
-}
-
-.remember-me-group label {
-  font-size: 13px;
-  color: #555555;
-  cursor: pointer;
-  user-select: none;
 }
 
 .btn-login-submit {
@@ -409,6 +427,8 @@ export default {
   margin-top: 5px;
   transition: all 0.3s ease;
   font-family: 'Poppins', sans-serif;
+  position: relative;
+  z-index: 20;
 }
 
 .btn-login-submit:hover:not(:disabled) {
@@ -425,11 +445,14 @@ export default {
 .error-message {
   background: #fee2e2;
   color: #dc2626;
-  padding: 10px 14px;
+  padding: 14px 16px;
   border-radius: 8px;
   margin-bottom: 16px;
-  font-size: 13px;
+  font-size: 14px;
   text-align: center;
+  border: 1px solid #fecaca;
+  position: relative;
+  z-index: 20;
 }
 
 .footer-text {
@@ -437,6 +460,8 @@ export default {
   font-size: 13px;
   color: #666666;
   text-align: center;
+  position: relative;
+  z-index: 20;
 }
 
 .signup-link {
@@ -473,6 +498,10 @@ export default {
   
   .form-title {
     font-size: 20px;
+  }
+  
+  .role-selector {
+    flex-direction: column;
   }
 }
 </style>

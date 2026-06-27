@@ -12,7 +12,7 @@ const api = axios.create({
   }
 });
 
-// 🔥 INTERCEPTOR REQUEST
+// Interceptor request
 api.interceptors.request.use(
   (config) => {
     console.log(`📤 [${config.method.toUpperCase()}] ${config.url}`);
@@ -20,17 +20,13 @@ api.interceptors.request.use(
     const token = localStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Token attached');
     }
     return config;
   },
-  (error) => {
-    console.error('❌ Request error:', error);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// 🔥 INTERCEPTOR RESPONSE
+// Interceptor response
 api.interceptors.response.use(
   (response) => {
     console.log(`📥 [${response.status}] ${response.config.url}`);
@@ -40,9 +36,6 @@ api.interceptors.response.use(
     console.error('❌ Response error:', error);
     
     if (error.response) {
-      console.error('Status:', error.response.status);
-      console.error('Data:', error.response.data);
-      
       if (error.response.status === 401) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_role');

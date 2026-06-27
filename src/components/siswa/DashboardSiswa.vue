@@ -1,6 +1,5 @@
 <template>
   <div class="student-dashboard">
-    
     <header class="navbar">
       <div class="nav-left">
         <div class="logo">
@@ -30,15 +29,13 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
           </div>
           <span class="profile-name">{{ studentName }}</span>
-          <button @click="handleLogout" class="logout-icon" title="Logout">🚪</button>
+          <button @click="logout" class="logout-icon" title="Logout">🚪</button>
         </div>
       </div>
     </header>
 
     <main class="main-content">
-      
       <div v-if="currentTab === 'home'">
-        
         <div class="top-row">
           <div class="join-card">
             <div class="join-wrapper">
@@ -127,205 +124,81 @@
         </div>
         <button v-if="allActivities.length > 0" class="btn-clear-all" @click="clearAllHistory">Hapus Semua History</button>
       </div>
-
     </main>
-
-    <QuizDetailModal v-if="selectedQuiz" :quiz="selectedQuiz" @close="selectedQuiz = null" @start="handleStartQuiz" />
-
   </div>
 </template>
 
 <script>
-import { useAuthStore } from '@/stores/authStore.js';
-import { useQuizStore } from '@/stores/quizStore.js';
-import { mapActions, mapState } from 'pinia';
-import QuizDetailModal from '@/components/QuizDetailModal.vue';
+import { useAuthStore } from '../../stores/auth.js';
 
 export default {
-  name: 'StudentDashboardView',
-  components: { QuizDetailModal },
-  emits: ['logout', 'start-quiz'],
+  name: 'DashboardSiswa',
   data() {
     return {
       currentTab: 'home',
       searchQuery: '',
       joinCode: '',
-      selectedQuiz: null,
+      loading: false,
+      quizzes: [],
       recentActivities: [],
       allActivities: []
     };
   },
   computed: {
-    ...mapState(useQuizStore, ['studentQuizzes', 'loading', 'error']),
-    
     studentName() {
-      const authStore = useAuthStore();
-      return authStore.user?.full_name || 
-             authStore.user?.name || 
-             localStorage.getItem('user_name') || 
-             'Student';
+      return localStorage.getItem('user_name') || 'Student';
     },
-    
     firstName() {
       return this.studentName.split(' ')[0] || 'Student';
     },
-    
     currentDate() {
-      return new Date().toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
+      return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     },
-    
-    quizzes() {
-      return this.studentQuizzes || [];
-    },
-    
     filteredQuizzes() {
       if (!this.searchQuery.trim()) return this.quizzes;
       const query = this.searchQuery.toLowerCase();
-      return this.quizzes.filter(q => 
-        q.title.toLowerCase().includes(query) ||
-        q.description?.toLowerCase().includes(query)
-      );
+      return this.quizzes.filter(q => q.title?.toLowerCase().includes(query));
     }
   },
   mounted() {
     this.loadQuizzes();
     this.loadFromStorage();
-    
-    // 🔥 REFRESH OTOMATIS SETIAP 5 DETIK
-    this.refreshInterval = setInterval(() => {
-      this.loadQuizzes();
-    }, 5000);
-  },
-  beforeUnmount() {
-    if (this.refreshInterval) clearInterval(this.refreshInterval);
   },
   methods: {
-    ...mapActions(useQuizStore, ['fetchStudentQuizzes', 'joinQuiz', 'fetchQuizDetail']),
-
     async loadQuizzes() {
-      await this.fetchStudentQuizzes();
+      this.loading = true;
+      // Simulasi loading
+      setTimeout(() => {
+        this.quizzes = [];
+        this.loading = false;
+      }, 1000);
     },
-
     loadFromStorage() {
-      const savedRecent = localStorage.getItem('recent_activities');
-      if (savedRecent) {
-        try { this.recentActivities = JSON.parse(savedRecent); } catch(e) {}
-      }
-      const savedAll = localStorage.getItem('all_activities');
-      if (savedAll) {
-        try { this.allActivities = JSON.parse(savedAll); } catch(e) {}
-      }
+      // Load from localStorage
     },
-
-    saveToStorage() {
-      localStorage.setItem('recent_activities', JSON.stringify(this.recentActivities));
-      localStorage.setItem('all_activities', JSON.stringify(this.allActivities));
+    handleJoin() {
+      alert('Join feature coming soon!');
     },
-
-    async handleJoin() {
-      if (!this.joinCode.trim()) {
-        alert('Masukkan kode join terlebih dahulu!');
-        return;
-      }
-      
-      const result = await this.joinQuiz(this.joinCode.trim());
-      
-      if (result.success) {
-        alert(`✅ Berhasil join kuis: ${result.data.title}`);
-        this.joinCode = '';
-        this.openQuiz(result.data);
-      } else {
-        alert('❌ ' + result.message);
-      }
-    },
-
     openQuiz(quiz) {
-      this.selectedQuiz = {
-        id: quiz.id,
-        title: quiz.title,
-        description: quiz.description || 'Test your knowledge!',
-        total_questions: quiz.total_questions || quiz.questions?.length || 0,
-        duration: quiz.duration || 10,
-        emoji: quiz.emoji || '📝',
-        cover_image: quiz.cover_image || null,
-        questions: quiz.questions || []
-      };
+      alert(`Opening quiz: ${quiz.title}`);
     },
-
-    handleStartQuiz(quiz) {
-      localStorage.setItem('current_quiz_title', quiz.title);
-      localStorage.setItem('current_quiz_duration', quiz.duration || 10);
-      
-      const questions = quiz.questions?.map(q => ({
-        id: q.id || Date.now(),
-        question: q.question || 'No question',
-        question_image: q.question_image || null,
-        options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-        options_images: q.options_images || [],
-        correct_index: q.correct_index || 0,
-        points: q.points || 1
-      })) || [];
-      
-      localStorage.setItem('current_quiz_questions', JSON.stringify(questions));
-      
-      this.$emit('start-quiz', quiz.id);
-      this.selectedQuiz = null;
-    },
-
-    addToRecent(result) {
-      const accuracy = result.score + '%';
-      const accuracyClass = result.score >= 70 ? 'accuracy-green' : 'accuracy-red';
-      
-      const activity = {
-        id: Date.now(),
-        title: result.title || 'Quiz',
-        questions: result.totalQuestions || 5,
-        accuracy: accuracy,
-        accuracyClass: accuracyClass,
-        emoji: result.emoji || '📝',
-        date: new Date().toLocaleDateString('id-ID', { 
-          day: 'numeric', month: 'long', year: 'numeric',
-          hour: '2-digit', minute: '2-digit'
-        })
-      };
-      
-      this.recentActivities.unshift(activity);
-      if (this.recentActivities.length > 5) this.recentActivities.pop();
-      this.allActivities.unshift(activity);
-      this.saveToStorage();
-    },
-
     deleteHistory(index) {
-      if (confirm('Hapus history ini?')) {
-        this.allActivities.splice(index, 1);
-        this.recentActivities = this.allActivities.slice(0, 5);
-        this.saveToStorage();
-      }
+      this.allActivities.splice(index, 1);
     },
-
     clearAllHistory() {
-      if (confirm('Hapus semua history aktivitas?')) {
-        this.allActivities = [];
-        this.recentActivities = [];
-        this.saveToStorage();
-      }
+      this.allActivities = [];
+      this.recentActivities = [];
     },
-
-    handleLogout() {
+    logout() {
       const authStore = useAuthStore();
       authStore.logout();
-      this.$emit('logout');
+      window.location.href = '/';
     }
   }
 };
 </script>
 
 <style scoped>
-/* Style sama seperti sebelumnya */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 .student-dashboard {
@@ -397,11 +270,6 @@ export default {
   color: #94a3b8;
 }
 
-.search-icon {
-  font-size: 14px;
-  color: #94a3b8;
-}
-
 .nav-center {
   display: flex;
   gap: 28px;
@@ -439,10 +307,6 @@ export default {
   height: 2.5px;
   background: #7468f3;
   border-radius: 2px;
-}
-
-.nav-icon {
-  flex-shrink: 0;
 }
 
 .nav-right {
@@ -504,7 +368,7 @@ export default {
   border-radius: 12px;
   padding: 20px 24px;
   border: 1px solid #f1f5f9;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   display: flex;
   align-items: center;
 }
@@ -608,14 +472,14 @@ export default {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #f1f5f9;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   cursor: pointer;
   transition: all 0.25s ease;
 }
 
 .activity-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
 }
 
 .activity-card .card-emoji {
@@ -667,14 +531,14 @@ export default {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #f1f5f9;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   cursor: pointer;
   transition: all 0.25s ease;
 }
 
 .subject-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
 }
 
 .card-cover {
@@ -719,14 +583,6 @@ export default {
   padding: 2px 8px;
   border-radius: 10px;
   display: inline-block;
-}
-
-.quiz-source.default {
-  background: #e2e8f0;
-  color: #64748b;
-}
-
-.quiz-source.teacher {
   background: #dbeafe;
   color: #1d4ed8;
 }
@@ -805,7 +661,7 @@ export default {
 
 .activity-item:hover {
   border-color: #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
 .activity-icon {

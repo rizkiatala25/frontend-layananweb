@@ -1,5 +1,5 @@
 <template>
-  <div class="signup-wrapper">
+  <div class="register-wrapper">
     <header class="app-header">
       <div class="logo-group">
         <div class="logo-circle"></div>
@@ -12,39 +12,25 @@
       <div class="curve-right"></div>
     </div>
 
-    <main class="signup-main">
-      <div class="signup-card">
+    <main class="register-main">
+      <div class="register-card">
         <div class="card-logo-center">
           <div class="logo-circle-small"></div>
           <span class="app-title-card">ZONEQUIZZZ</span>
         </div>
 
-        <h1 class="form-title">Sign Up</h1>
+        <h1 class="form-title">{{ title }}</h1>
 
-        <!-- 🔥 ROLE SELECTOR -->
-        <div class="role-selector">
-          <button 
-            type="button"
-            class="role-btn"
-            :class="{ active: formData.role === 'siswa' }"
-            @click="formData.role = 'siswa'"
-          >
-            🎓 Student
-          </button>
-          <button 
-            type="button"
-            class="role-btn"
-            :class="{ active: formData.role === 'guru' }"
-            @click="formData.role = 'guru'"
-          >
-            👨‍🏫 Teacher
-          </button>
+        <div class="role-badge-container">
+          <span class="role-badge" :class="role">
+            {{ role === 'guru' ? '👨‍🏫 Teacher' : '🎓 Student' }}
+          </span>
         </div>
 
         <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
         <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
 
-        <form @submit.prevent="handleSignUp">
+        <form @submit.prevent="handleRegister">
           <div class="input-group">
             <label for="fullName">Full Name</label>
             <input type="text" id="fullName" v-model="formData.full_name" placeholder="Full Name" required />
@@ -77,14 +63,14 @@
             </div>
           </div>
 
-          <button type="submit" class="btn-signup" :disabled="loading">
+          <button type="submit" class="btn-register" :disabled="loading">
             {{ loading ? '⏳ Memproses...' : 'Sign Up' }}
           </button>
         </form>
 
         <p class="footer-text">
           Already have an account? 
-          <a href="#" @click.prevent="$emit('navigate-to-login')" class="login-link">Login</a>
+          <a href="#" @click.prevent="goToLogin" class="login-link">Login</a>
         </p>
       </div>
     </main>
@@ -92,11 +78,21 @@
 </template>
 
 <script>
-import { useAuthStore } from '@/stores/authStore.js';
+import { useAuthStore } from '../../stores/auth.js';
 
 export default {
-  name: 'SignUpView',
-  emits: ['navigate-to-login'],
+  name: 'RegisterView',
+  props: {
+    role: {
+      type: String,
+      required: true,
+      validator: (value) => ['siswa', 'guru'].includes(value)
+    },
+    title: {
+      type: String,
+      default: 'Sign Up'
+    }
+  },
   data() {
     return {
       formData: {
@@ -104,7 +100,7 @@ export default {
         username: '',
         email: '',
         password: '',
-        role: 'siswa'
+        role: this.role
       },
       passwordVisible: false,
       loading: false,
@@ -113,11 +109,11 @@ export default {
     };
   },
   methods: {
-    async handleSignUp() {
+    async handleRegister() {
       this.errorMessage = '';
       this.successMessage = '';
 
-      // 🔥 VALIDASI
+      // Validasi
       if (!this.formData.full_name.trim()) {
         this.errorMessage = "Nama lengkap wajib diisi!";
         return;
@@ -157,20 +153,25 @@ export default {
           full_name: this.formData.full_name,
           username: this.formData.username,
           email: this.formData.email,
-          role: this.formData.role,
+          role: this.role,
           password: this.formData.password
         };
 
         console.log('📤 Register data:', registerData);
 
-        const response = await authStore.registerOnly(registerData);
+        let response;
+        if (this.role === 'guru') {
+          response = await authStore.registerGuru(registerData);
+        } else {
+          response = await authStore.registerSiswa(registerData);
+        }
 
         console.log('📥 Register response:', response);
 
         if (response.success) {
           this.successMessage = `✅ Akun @${this.formData.username} berhasil dibuat! Silakan login.`;
           setTimeout(() => {
-            this.$emit('navigate-to-login', this.formData.role);
+            this.goToLogin();
           }, 2000);
         } else {
           this.errorMessage = response.message || 'Registrasi gagal. Silakan coba lagi.';
@@ -181,16 +182,18 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    goToLogin() {
+      this.$router.push(`/login/${this.role}`);
     }
   }
 };
 </script>
 
 <style scoped>
-/* STYLE SAMA SEPERTI SEBELUMNYA */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
-.signup-wrapper {
+.register-wrapper {
   --primary-purple: #7468f3;
   --dark-background: #1a1c29;
   --light-card: #ffffff;
@@ -266,7 +269,7 @@ export default {
   transform: rotate(-25deg);
 }
 
-.signup-main {
+.register-main {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -276,7 +279,7 @@ export default {
   z-index: 2;
 }
 
-.signup-card {
+.register-card {
   background-color: var(--light-card);
   width: 100%;
   max-width: 440px;
@@ -317,34 +320,27 @@ export default {
   letter-spacing: 0.5px;
 }
 
-.role-selector {
-  display: flex;
-  gap: 10px;
+.role-badge-container {
+  text-align: center;
   margin-bottom: 20px;
 }
 
-.role-btn {
-  flex: 1;
-  padding: 10px 14px;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-  cursor: pointer;
-  font-family: 'Poppins', sans-serif;
+.role-badge {
+  display: inline-block;
+  padding: 6px 24px;
+  border-radius: 20px;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s;
-  color: #64748b;
 }
 
-.role-btn:hover {
-  border-color: #cbd5e1;
+.role-badge.siswa {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
-.role-btn.active {
-  border-color: #7468f3;
-  background: #f0edff;
-  color: #7468f3;
+.role-badge.guru {
+  background: #fce7f3;
+  color: #be185d;
 }
 
 .input-group {
@@ -402,7 +398,7 @@ export default {
   color: #7468f3;
 }
 
-.btn-signup {
+.btn-register {
   width: 100%;
   background: linear-gradient(135deg, #7468f3 0%, #635bff 100%);
   color: white;
@@ -417,12 +413,12 @@ export default {
   font-family: 'Poppins', sans-serif;
 }
 
-.btn-signup:hover:not(:disabled) {
+.btn-register:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(116, 104, 243, 0.3);
 }
 
-.btn-signup:disabled {
+.btn-register:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
@@ -485,16 +481,12 @@ export default {
     height: 40px;
   }
   
-  .signup-card {
+  .register-card {
     padding: 30px 20px;
   }
   
   .form-title {
     font-size: 20px;
-  }
-  
-  .role-selector {
-    flex-direction: column;
   }
 }
 </style>

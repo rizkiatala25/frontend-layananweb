@@ -1,26 +1,44 @@
 <template>
   <div class="quiz-play">
     
+    <!-- HEADER -->
     <header class="quiz-header">
-      <div class="timer-container">
-        <div class="timer-circle">
-          <span class="timer-text">{{ formattedTime }}</span>
-        </div>
+      <div class="header-left">
+        <button class="btn-back" @click="goBack">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <span class="quiz-title">{{ quizTitle }}</span>
       </div>
-      <div class="progress-text">
-        <span class="question-number">{{ currentIndex + 1 }}/{{ questions.length }}</span>
+      <div class="header-right">
+        <div class="timer-container">
+          <div class="timer-circle">
+            <span class="timer-text">{{ formattedTime }}</span>
+          </div>
+        </div>
+        <div class="progress-text">
+          <span class="question-number">{{ currentIndex + 1 }}/{{ questions.length }}</span>
+        </div>
       </div>
     </header>
 
+    <!-- PROGRESS BAR -->
+    <div class="progress-bar">
+      <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
+    </div>
+
+    <!-- BODY -->
     <main class="quiz-body">
       <div class="question-container">
-        <!-- 🔥 GAMBAR SOAL -->
+        <!-- Gambar Soal -->
         <div v-if="currentQuestion?.question_image" class="question-image-wrapper">
           <img :src="currentQuestion.question_image" alt="Question image" class="question-image" />
         </div>
         
         <h2 class="question-text">{{ currentQuestion?.question || 'Loading...' }}</h2>
         
+        <!-- Options -->
         <div class="options-grid">
           <button 
             v-for="(option, index) in currentQuestion?.options || []" 
@@ -29,41 +47,67 @@
             :class="{
               selected: selectedAnswer === index,
               correct: showResult && index === correctAnswerIndex,
-              wrong: showResult && selectedAnswer === index && index !== correctAnswerIndex
+              wrong: showResult && selectedAnswer === index && index !== correctAnswerIndex,
+              answered: answersMap[currentIndex] !== undefined && answersMap[currentIndex] === index
             }"
             :disabled="showResult"
             @click="selectOption(index)"
           >
-            <!-- 🔥 GAMBAR OPTION -->
+            <span class="option-label">{{ String.fromCharCode(65 + index) }}.</span>
+            <!-- Gambar Option -->
             <div v-if="currentQuestion?.options_images && currentQuestion.options_images[index]" class="option-image-wrapper">
               <img :src="currentQuestion.options_images[index]" alt="Option image" class="option-image" />
             </div>
             <span class="option-text">{{ option }}</span>
+            <span v-if="answersMap[currentIndex] !== undefined && answersMap[currentIndex] === index" class="option-check">✓</span>
+          </button>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="navigation-buttons">
+          <button 
+            class="btn-nav prev" 
+            @click="previousQuestion"
+            :disabled="currentIndex === 0"
+          >
+            ← Previous
+          </button>
+          <button 
+            class="btn-nav next" 
+            @click="nextQuestion"
+            :disabled="currentIndex === questions.length - 1"
+          >
+            Next →
           </button>
         </div>
       </div>
     </main>
 
+    <!-- FOOTER -->
     <footer class="quiz-footer">
       <div class="footer-actions">
+        <div class="answer-status">
+          <span class="answered-count">
+            {{ answeredCount }} / {{ questions.length }} answered
+          </span>
+          <span v-if="answeredCount < questions.length" class="warning-text">
+            ⚠️ Answer all questions to submit
+          </span>
+          <span v-else class="success-text">
+            ✅ All questions answered!
+          </span>
+        </div>
         <button 
-          v-if="!showResult"
           class="btn-submit" 
-          :disabled="selectedAnswer === null"
-          @click="submitAnswer"
+          :disabled="answeredCount < questions.length || submitting"
+          @click="submitAllAnswers"
         >
-          Submit Answer
-        </button>
-        <button 
-          v-else
-          class="btn-next" 
-          @click="nextQuestion"
-        >
-          {{ isLastQuestion ? 'See Results' : 'Next Question →' }}
+          {{ submitting ? '⏳ Submitting...' : '📤 Submit Quiz' }}
         </button>
       </div>
     </footer>
 
+    <!-- RESULT MODAL -->
     <div v-if="showResultModal" class="result-modal-overlay" @click.self="closeResult">
       <div class="result-modal">
         <div class="result-icon">{{ scorePercentage >= 70 ? '🎉' : '💪' }}</div>
@@ -73,7 +117,11 @@
           <span class="score-total">/ {{ questions.length }}</span>
         </div>
         <p class="result-percentage">{{ scorePercentage }}%</p>
-        <button class="btn-result-close" @click="closeResult">Close</button>
+        <div class="result-details">
+          <span>✅ Correct: {{ correctCount }}</span>
+          <span>❌ Wrong: {{ questions.length - correctCount }}</span>
+        </div>
+        <button class="btn-result-close" @click="closeResult">View Results</button>
       </div>
     </div>
 
@@ -82,6 +130,7 @@
 
 <script>
 import { useQuizStore } from '@/stores/quizStore.js';
+import { useAuthStore } from '@/stores/authStore.js';
 
 export default {
   name: 'QuizPlayView',
@@ -100,12 +149,15 @@ export default {
       selectedAnswer: null,
       showResult: false,
       correctAnswerIndex: null,
-      answers: [],
+      answersMap: {}, // { questionIndex: selectedOptionIndex }
       timeRemaining: 600,
       timerInterval: null,
       showResultModal: false,
       correctCount: 0,
-      scorePercentage: 0
+      scorePercentage: 0,
+      submitting: false,
+      quizStore: null,
+      authStore: null
     };
   },
   computed: {
@@ -119,9 +171,18 @@ export default {
       const mins = Math.floor(this.timeRemaining / 60);
       const secs = this.timeRemaining % 60;
       return `${mins}:${secs.toString().padStart(2, '0')}`;
+    },
+    progressPercentage() {
+      return ((this.currentIndex + 1) / this.questions.length) * 100;
+    },
+    answeredCount() {
+      return Object.keys(this.answersMap).length;
     }
   },
   mounted() {
+    this.quizStore = useQuizStore();
+    this.authStore = useAuthStore();
+    
     const duration = parseInt(localStorage.getItem('current_quiz_duration')) || 10;
     this.timeRemaining = duration * 60;
     this.loadQuiz();
@@ -133,63 +194,84 @@ export default {
   methods: {
     async loadQuiz() {
       try {
-        const quizStore = useQuizStore();
-        const result = await quizStore.fetchQuizDetail(this.quizId);
+        const quizId = this.quizId;
+        console.log('📌 Loading quiz ID:', quizId);
         
-        if (result.success && result.data.questions && result.data.questions.length > 0) {
+        // Cek localStorage dulu
+        const savedQuestions = localStorage.getItem('current_quiz_questions');
+        const savedTitle = localStorage.getItem('current_quiz_title') || 'Quiz';
+        const savedDuration = parseInt(localStorage.getItem('current_quiz_duration')) || 10;
+        
+        if (savedQuestions) {
+          try {
+            const questions = JSON.parse(savedQuestions);
+            if (questions && questions.length > 0) {
+              console.log('📚 Loaded questions from localStorage:', questions.length);
+              this.quizTitle = savedTitle;
+              this.questions = questions.map(q => ({
+                id: q.id || Date.now(),
+                question: q.question || 'No question',
+                options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+                question_image: q.question_image || null,
+                options_images: q.options_images || [],
+                correct_index: q.correct_index !== undefined ? q.correct_index : 0,
+                points: q.points || 1
+              }));
+              this.timeRemaining = savedDuration * 60;
+              this.answersMap = {};
+              return;
+            }
+          } catch (e) {
+            console.error('Error parsing saved questions:', e);
+          }
+        }
+        
+        // Coba dari store
+        const result = await this.quizStore.fetchQuizDetail(quizId);
+        
+        if (result.success && result.data) {
           const data = result.data;
           this.quizTitle = data.title || 'Quiz';
-          this.questions = data.questions.map(q => ({
-            id: q.id,
-            question: q.question,
-            options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-            question_image: q.question_image || null,
-            options_images: q.options_images || [],
-            correct_index: q.correct_index !== undefined ? q.correct_index : 0
-          }));
           this.timeRemaining = (data.total_time || data.duration || 10) * 60;
-        } else {
-          this.loadMockData();
+          
+          if (data.questions && data.questions.length > 0) {
+            this.questions = data.questions.map(q => ({
+              id: q.id || Date.now(),
+              question: q.question || 'No question',
+              options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+              question_image: q.question_image || null,
+              options_images: q.options_images || [],
+              correct_index: q.correct_index !== undefined ? q.correct_index : 0,
+              points: q.points || 1
+            }));
+            this.answersMap = {};
+            return;
+          }
         }
+        
+        // Fallback mock data
+        this.loadMockData();
+        
       } catch (error) {
-        console.error('Error loading quiz, using mock data:', error);
+        console.error('Error loading quiz:', error);
         this.loadMockData();
       }
     },
 
     loadMockData() {
-      const savedTitle = localStorage.getItem('current_quiz_title') || 'Quiz';
-      const savedQuestions = localStorage.getItem('current_quiz_questions');
+      this.quizTitle = localStorage.getItem('current_quiz_title') || 'Quiz';
       const savedDuration = parseInt(localStorage.getItem('current_quiz_duration')) || 10;
-      
-      this.quizTitle = savedTitle;
       this.timeRemaining = savedDuration * 60;
-      
-      if (savedQuestions) {
-        try {
-          const questions = JSON.parse(savedQuestions);
-          if (questions && questions.length > 0) {
-            this.questions = questions.map(q => ({
-              ...q,
-              question_image: q.question_image || null,
-              options_images: q.options_images || []
-            }));
-            console.log('📚 Loaded questions with images:', this.questions);
-            return;
-          }
-        } catch (e) {
-          console.error('Error parsing questions:', e);
-        }
-      }
       
       this.questions = [
         {
           id: 1,
-          question: 'Tanggal berapa indonesia merdeka',
+          question: 'Tanggal berapa Indonesia merdeka?',
           options: ['17 Agustus 1945', '17 Agustus 1946', '17 Agustus 1947', '17 Agustus 1944'],
           question_image: null,
           options_images: [],
-          correct_index: 0
+          correct_index: 0,
+          points: 1
         },
         {
           id: 2,
@@ -197,9 +279,21 @@ export default {
           options: ['Soekarno', 'Soeharto', 'Habibie', 'Gus Dur'],
           question_image: null,
           options_images: [],
-          correct_index: 0
+          correct_index: 0,
+          points: 1
+        },
+        {
+          id: 3,
+          question: 'Apa ibukota Indonesia?',
+          options: ['Jakarta', 'Bandung', 'Surabaya', 'Medan'],
+          question_image: null,
+          options_images: [],
+          correct_index: 0,
+          points: 1
         }
       ];
+      this.answersMap = {};
+      console.log('📚 Loaded mock questions:', this.questions.length);
     },
 
     startTimer() {
@@ -207,7 +301,8 @@ export default {
         this.timeRemaining--;
         if (this.timeRemaining <= 0) {
           this.stopTimer();
-          this.finishQuiz();
+          alert('⏰ Time is up! Submitting your answers...');
+          this.submitAllAnswers();
         }
       }, 1000);
     },
@@ -222,58 +317,170 @@ export default {
     selectOption(index) {
       if (!this.showResult) {
         this.selectedAnswer = index;
+        // Simpan jawaban di map
+        this.answersMap[this.currentIndex] = index;
+        console.log('📌 Answer saved:', this.currentIndex, index);
+        console.log('📌 All answers:', this.answersMap);
       }
     },
 
-    submitAnswer() {
-      if (this.selectedAnswer === null) {
-        alert('Silakan pilih jawaban terlebih dahulu!');
+    // Navigasi antar soal
+    nextQuestion() {
+      if (this.currentIndex < this.questions.length - 1) {
+        this.currentIndex++;
+        this.selectedAnswer = this.answersMap[this.currentIndex] !== undefined ? 
+          this.answersMap[this.currentIndex] : null;
+        this.showResult = false;
+      }
+    },
+
+    previousQuestion() {
+      if (this.currentIndex > 0) {
+        this.currentIndex--;
+        this.selectedAnswer = this.answersMap[this.currentIndex] !== undefined ? 
+          this.answersMap[this.currentIndex] : null;
+        this.showResult = false;
+      }
+    },
+
+    goBack() {
+      if (Object.keys(this.answersMap).length > 0) {
+        if (confirm('Anda sudah mengerjakan beberapa soal. Yakin ingin keluar?')) {
+          this.stopTimer();
+          this.$emit('back');
+        }
+      } else {
+        this.stopTimer();
+        this.$emit('back');
+      }
+    },
+
+    // Submit semua jawaban
+    async submitAllAnswers() {
+      // Cek apakah semua soal sudah dijawab
+      if (this.answeredCount < this.questions.length) {
+        alert(`⚠️ Anda belum menjawab semua soal! (${this.answeredCount}/${this.questions.length})`);
         return;
       }
-      
-      const currentQ = this.currentQuestion;
-      const isCorrect = this.selectedAnswer === currentQ.correct_index;
-      
-      this.correctAnswerIndex = currentQ.correct_index;
-      this.showResult = true;
-      
-      this.answers.push({
-        question_id: currentQ.id,
-        selected: this.selectedAnswer,
-        correct: currentQ.correct_index,
-        is_correct: isCorrect
-      });
-      
-      if (isCorrect) {
-        this.correctCount++;
-      }
-    },
 
-    nextQuestion() {
-      this.showResult = false;
-      this.selectedAnswer = null;
-      this.correctAnswerIndex = null;
-      
-      if (this.isLastQuestion) {
-        this.finishQuiz();
-      } else {
-        this.currentIndex++;
-      }
-    },
+      this.submitting = true;
 
-    finishQuiz() {
-      this.stopTimer();
-      this.scorePercentage = Math.round((this.correctCount / this.questions.length) * 100);
-      this.showResultModal = true;
+      try {
+        console.log('📌 Submitting all answers:', this.answersMap);
+
+        // Hitung hasil
+        let correct = 0;
+        const answerDetails = [];
+
+        for (let i = 0; i < this.questions.length; i++) {
+          const question = this.questions[i];
+          const selected = this.answersMap[i];
+          const isCorrect = selected === question.correct_index;
+          
+          if (isCorrect) correct++;
+          
+          answerDetails.push({
+            question_id: question.id,
+            selected: selected,
+            correct: question.correct_index,
+            is_correct: isCorrect
+          });
+        }
+
+        const totalQuestions = this.questions.length;
+        const score = Math.round((correct / totalQuestions) * 100);
+
+        this.correctCount = correct;
+        this.scorePercentage = score;
+
+        // Simpan hasil ke localStorage
+        const studentName = this.authStore.user?.full_name || 
+                           localStorage.getItem('user_name') || 
+                           'Student';
+
+        const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
+        const quizId = this.quizId;
+
+        if (!quizResults[quizId]) {
+          quizResults[quizId] = [];
+        }
+
+        // Format answers untuk ditampilkan
+        const formattedAnswers = this.questions.map((q, index) => {
+          const options = q.options || [];
+          const correctIndex = q.correct_index !== undefined ? q.correct_index : 0;
+          const selectedIndex = this.answersMap[index];
+          
+          return {
+            question: q.question || `Soal ${index + 1}`,
+            question_image: q.question_image || null,
+            options: options,
+            options_images: q.options_images || [],
+            correct_answer: options[correctIndex] || 'Correct Answer',
+            user_answer: options[selectedIndex] || 'Not Answered'
+          };
+        });
+
+        quizResults[quizId].push({
+          studentName: studentName,
+          score: score,
+          correct: correct,
+          total: totalQuestions,
+          date: new Date().toLocaleDateString('id-ID', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          answers: formattedAnswers
+        });
+
+        localStorage.setItem('quiz_results', JSON.stringify(quizResults));
+
+        // Simpan result untuk ditampilkan
+        const quizResult = {
+          title: this.quizTitle,
+          totalQuestions: totalQuestions,
+          score: score,
+          emoji: '📝'
+        };
+        localStorage.setItem('quiz_result', JSON.stringify(quizResult));
+
+        this.stopTimer();
+        this.showResultModal = true;
+
+      } catch (error) {
+        console.error('Submit error:', error);
+        alert('❌ Gagal submit quiz. Silakan coba lagi.');
+      } finally {
+        this.submitting = false;
+      }
     },
 
     closeResult() {
       this.showResultModal = false;
+      
+      // Kirim hasil ke parent
+      const totalQuestions = this.questions.length;
+      const score = this.scorePercentage;
+      
+      // Buat object answers untuk parent
+      const answerList = [];
+      for (let i = 0; i < this.questions.length; i++) {
+        const question = this.questions[i];
+        answerList.push({
+          selected: this.answersMap[i],
+          correct: question.correct_index,
+          is_correct: this.answersMap[i] === question.correct_index
+        });
+      }
+      
       this.$emit('finish', {
         correct: this.correctCount,
-        total: this.questions.length,
-        score: this.scorePercentage,
-        answers: this.answers
+        total: totalQuestions,
+        score: score,
+        answers: answerList
       });
     }
   }
@@ -304,13 +511,47 @@ export default {
   border-bottom: 1px solid #f1f5f9;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.btn-back:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.quiz-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .timer-container {
   display: flex;
   align-items: center;
 }
 
 .timer-circle {
-  position: relative;
   width: 52px;
   height: 52px;
   background: #f1f5f9;
@@ -338,12 +579,29 @@ export default {
   color: #1e293b;
 }
 
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: #f1f5f9;
+  border-radius: 2px;
+  margin: 12px 0 16px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
 .quiz-body {
   flex: 1;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   padding: 20px 0;
+  overflow-y: auto;
 }
 
 .question-container {
@@ -351,7 +609,6 @@ export default {
   width: 100%;
 }
 
-/* 🔥 GAMBAR SOAL */
 .question-image-wrapper {
   margin-bottom: 16px;
   text-align: center;
@@ -371,13 +628,13 @@ export default {
   color: #1e293b;
   margin: 0 0 28px 0;
   line-height: 1.6;
-  text-align: left;
 }
 
 .options-grid {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-bottom: 20px;
 }
 
 .option-btn {
@@ -407,6 +664,11 @@ export default {
   background: #f0edff;
 }
 
+.option-btn.answered {
+  border-color: #10b981;
+  background: #ecfdf5;
+}
+
 .option-btn.correct {
   border-color: #10b981;
   background: #ecfdf5;
@@ -421,7 +683,12 @@ export default {
   cursor: not-allowed;
 }
 
-/* 🔥 GAMBAR OPTION */
+.option-label {
+  font-weight: 600;
+  color: #94a3b8;
+  min-width: 24px;
+}
+
 .option-image-wrapper {
   display: inline-block;
   flex-shrink: 0;
@@ -436,24 +703,46 @@ export default {
 }
 
 .option-text {
+  flex: 1;
   font-size: 15px;
   font-weight: 400;
   color: #1e293b;
 }
 
-.option-btn.selected .option-text {
-  color: #6c5ce7;
-  font-weight: 500;
-}
-
-.option-btn.correct .option-text {
+.option-check {
   color: #10b981;
-  font-weight: 500;
+  font-weight: 700;
 }
 
-.option-btn.wrong .option-text {
-  color: #ef4444;
+.navigation-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.btn-nav {
+  padding: 10px 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #64748b;
+  font-size: 14px;
   font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-nav:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #6c5ce7;
+  color: #6c5ce7;
+}
+
+.btn-nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .quiz-footer {
@@ -463,11 +752,34 @@ export default {
 
 .footer-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.answer-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.answered-count {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.warning-text {
+  color: #f59e0b;
+}
+
+.success-text {
+  color: #10b981;
 }
 
 .btn-submit {
-  padding: 10px 28px;
+  padding: 10px 32px;
   background: #6c5ce7;
   color: white;
   border: none;
@@ -486,28 +798,9 @@ export default {
 }
 
 .btn-submit:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none;
-}
-
-.btn-next {
-  padding: 10px 28px;
-  background: #10b981;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: 'Poppins', sans-serif;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.btn-next:hover {
-  background: #059669;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
 }
 
 .result-modal-overlay {
@@ -529,7 +822,7 @@ export default {
   padding: 32px 28px 28px;
   border-radius: 16px;
   text-align: center;
-  max-width: 360px;
+  max-width: 400px;
   width: 90%;
   animation: modalIn 0.3s ease-out;
 }
@@ -576,7 +869,16 @@ export default {
   font-size: 16px;
   font-weight: 500;
   color: #64748b;
-  margin: 4px 0 18px 0;
+  margin: 4px 0 12px 0;
+}
+
+.result-details {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 18px;
 }
 
 .btn-result-close {
@@ -595,5 +897,42 @@ export default {
 .btn-result-close:hover {
   background: #5a4bd1;
   transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .quiz-play {
+    padding: 12px 14px 16px;
+  }
+  
+  .quiz-title {
+    font-size: 14px;
+  }
+  
+  .timer-circle {
+    width: 44px;
+    height: 44px;
+  }
+  
+  .timer-text {
+    font-size: 14px;
+  }
+  
+  .question-text {
+    font-size: 17px;
+  }
+  
+  .option-btn {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+  
+  .footer-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-submit {
+    width: 100%;
+  }
 }
 </style>

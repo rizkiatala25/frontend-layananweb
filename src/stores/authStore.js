@@ -12,63 +12,89 @@ export const useAuthStore = defineStore('auth', {
   }),
 
   getters: {
-    isStudent: (state) => state.role === 'student',
-    isTeacher: (state) => state.role === 'teacher',
+    isStudent: (state) => state.role === 'siswa' || state.role === 'student',
+    isTeacher: (state) => state.role === 'guru' || state.role === 'teacher',
     userName: (state) => state.user?.full_name || state.user?.name || '',
     userEmail: (state) => state.user?.email || ''
   },
 
   actions: {
-    async login(username, password) {
+    // 🔥 LOGIN - SUPPORT guru/siswa DAN teacher/student
+    async login(username, password, role) {
       this.loading = true;
       this.error = null;
       
       try {
-        const response = await authApi.login(username, password);
+        console.log('🔐 Login - username:', username, 'role:', role);
         
-        console.log('🔐 Login Response:', response);
+        let response;
+        if (role === 'guru' || role === 'teacher') {
+          response = await authApi.loginGuru(username, password);
+        } else {
+          response = await authApi.loginSiswa(username, password);
+        }
         
-        if (response.status === true) {
+        console.log('🔐 Login response:', response);
+        
+        if (response && response.success === true) {
           const userData = response.data.user;
           const token = response.data.token;
           
+          // 🔥 AMBIL ROLE DARI BACKEND
+          let userRole = userData.role;
+          console.log('📌 Role dari backend:', userRole);
+          
+          // 🔥 KONVERSI ROLE KE FORMAT YANG KITA PAKAI
+          // Jika backend kirim 'teacher' atau 'student', kita ubah ke 'guru' atau 'siswa'
+          if (userRole === 'teacher') userRole = 'guru';
+          if (userRole === 'student') userRole = 'siswa';
+          
+          console.log('📌 Role setelah konversi:', userRole);
+          
           this.token = token;
           this.user = userData;
-          this.role = userData.role;
+          this.role = userRole;
           this.isAuthenticated = true;
           
           localStorage.setItem('auth_token', token);
-          localStorage.setItem('user_role', userData.role);
+          localStorage.setItem('user_role', userRole);
           localStorage.setItem('user_data', JSON.stringify(userData));
           localStorage.setItem('user_name', userData.full_name || userData.name || username);
+          
+          console.log('✅ Login success - Role tersimpan:', this.role);
           
           return { success: true, data: response.data };
         }
         
-        return { success: false, message: response.message || 'Login gagal' };
+        return { success: false, message: response?.message || 'Login gagal' };
       } catch (error) {
-        console.error('Login error:', error);
-        const message = error.response?.data?.message || error.message || 'Terjadi kesalahan saat login';
-        this.error = message;
-        return { success: false, message };
+        console.error('❌ Login error:', error);
+        this.error = error.response?.data?.message || error.message || 'Terjadi kesalahan';
+        return { success: false, message: this.error };
       } finally {
         this.loading = false;
       }
     },
 
-    // 🔥 REGISTER ONLY (TANPA AUTO LOGIN)
+    // 🔥 REGISTER ONLY
     async registerOnly(userData) {
       this.loading = true;
       this.error = null;
       
       try {
-        console.log('📤 Register data to API:', userData);
+        console.log('📤 Register only:', userData);
         
-        const response = await authApi.register(userData);
+        let response;
+        // 🔥 CEK ROLE UNTUK PILIH ENDPOINT
+        if (userData.role === 'guru' || userData.role === 'teacher') {
+          response = await authApi.registerGuru(userData);
+        } else {
+          response = await authApi.registerSiswa(userData);
+        }
         
         console.log('📥 Register response:', response);
         
-        if (response.status === true) {
+        if (response && response.success === true) {
           return { 
             success: true, 
             data: response.data,
@@ -78,60 +104,60 @@ export const useAuthStore = defineStore('auth', {
         
         return { 
           success: false, 
-          message: response.message || 'Registrasi gagal' 
+          message: response?.message || 'Registrasi gagal'
         };
       } catch (error) {
-        console.error('Register error:', error);
-        
-        let message = 'Terjadi kesalahan saat registrasi';
-        if (error.response?.data?.message) {
-          message = error.response.data.message;
-        }
-        if (error.response?.data?.errors) {
-          const errors = Object.values(error.response.data.errors).flat().join(', ');
-          message = errors;
-        }
-        
-        this.error = message;
-        return { success: false, message };
+        console.error('❌ Register error:', error);
+        return { 
+          success: false, 
+          message: error.response?.data?.message || 'Terjadi kesalahan'
+        };
       } finally {
         this.loading = false;
       }
     },
 
-    // 🔥 REGISTER + AUTO LOGIN (untuk keperluan lain jika dibutuhkan)
+    // 🔥 REGISTER + AUTO LOGIN
     async register(userData) {
       const result = await this.registerOnly(userData);
       if (result.success) {
-        // Auto login setelah register
-        const loginResult = await this.login(userData.username, userData.password);
-        return loginResult;
+        return await this.login(userData.username, userData.password, userData.role);
       }
       return result;
     },
 
+    // 🔥 LOGOUT
     async logout() {
+      this.loading = true;
+      
       try {
         await authApi.logout();
       } catch (error) {
-        console.error('Logout error:', error);
+        console.warn('Logout API error:', error);
       } finally {
         this.user = null;
         this.token = null;
         this.role = null;
         this.isAuthenticated = false;
+        this.error = null;
         
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_role');
         localStorage.removeItem('user_data');
         localStorage.removeItem('user_name');
+        
+        this.loading = false;
       }
     },
 
+    // 🔥 LOAD FROM STORAGE
     loadUserFromStorage() {
       const token = localStorage.getItem('auth_token');
       const role = localStorage.getItem('user_role');
       const userData = localStorage.getItem('user_data');
+      
+      console.log('📌 loadUserFromStorage - token:', token ? 'Ada' : 'Tidak ada');
+      console.log('📌 loadUserFromStorage - role:', role);
       
       if (token && role) {
         this.token = token;
@@ -145,6 +171,14 @@ export const useAuthStore = defineStore('auth', {
             console.error('Error parsing user data:', e);
           }
         }
+        
+        console.log('✅ Auth loaded - Role:', this.role);
+      } else {
+        this.token = null;
+        this.role = null;
+        this.isAuthenticated = false;
+        this.user = null;
+        console.log('⚠️ No auth data in storage');
       }
     }
   }
