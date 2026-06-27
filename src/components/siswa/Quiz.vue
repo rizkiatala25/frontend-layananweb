@@ -59,7 +59,6 @@
             @click="selectOption(index)"
           >
             <span class="option-label">{{ String.fromCharCode(65 + index) }}.</span>
-            <!-- Gambar Option -->
             <div v-if="currentQuestion?.options_images && currentQuestion.options_images[index]" class="option-image-wrapper">
               <img :src="currentQuestion.options_images[index]" alt="Option image" class="option-image" />
             </div>
@@ -70,18 +69,10 @@
 
         <!-- Navigation Buttons -->
         <div class="navigation-buttons">
-          <button 
-            class="btn-nav prev" 
-            @click="previousQuestion"
-            :disabled="currentIndex === 0"
-          >
+          <button class="btn-nav prev" @click="previousQuestion" :disabled="currentIndex === 0">
             ← Previous
           </button>
-          <button 
-            class="btn-nav next" 
-            @click="nextQuestion"
-            :disabled="currentIndex === questions.length - 1"
-          >
+          <button class="btn-nav next" @click="nextQuestion" :disabled="currentIndex === questions.length - 1">
             Next →
           </button>
         </div>
@@ -112,21 +103,96 @@
       </div>
     </footer>
 
-    <!-- RESULT MODAL -->
-    <div v-if="showResultModal" class="result-modal-overlay" @click.self="closeResult">
-      <div class="result-modal">
-        <div class="result-icon">{{ scorePercentage >= 70 ? '🎉' : '💪' }}</div>
-        <h2 class="result-title">{{ scorePercentage >= 70 ? 'Great Job!' : 'Keep Practicing!' }}</h2>
-        <div class="result-score">
-          <span class="score-number">{{ correctCount }}</span>
-          <span class="score-total">/ {{ questions.length }}</span>
+    <!-- 🔥 POPUP QUIZ END -->
+    <div v-if="showQuizEndPopup" class="quiz-end-overlay">
+      <div class="quiz-end-card">
+        <div class="quiz-end-icon">🎉</div>
+        <h2 class="quiz-end-title">Quiz End!</h2>
+        <p class="quiz-end-subtitle">Selamat! Kamu telah menyelesaikan semua soal.</p>
+        <div class="quiz-end-timer">
+          <div class="timer-circle-end">
+            <span class="timer-text-end">{{ countdown }}</span>
+          </div>
+          <p class="timer-label">Redirecting to result...</p>
         </div>
-        <p class="result-percentage">{{ scorePercentage }}%</p>
-        <div class="result-details">
-          <span>✅ Benar: {{ correctCount }}</span>
-          <span>❌ Salah: {{ questions.length - correctCount }}</span>
+        <div class="quiz-end-progress">
+          <div class="progress-bar-end">
+            <div class="progress-fill-end" :style="{ width: countdownPercentage + '%' }"></div>
+          </div>
         </div>
-        <button class="btn-result-close" @click="closeResult">Lihat Hasil</button>
+      </div>
+    </div>
+
+    <!-- RESULT MODAL (TAMPILAN HASIL) -->
+    <div v-if="showResultModal" class="result-overlay" @click.self="closeResult">
+      <div class="result-card">
+        <!-- Header -->
+        <div class="result-header">
+          <h1 class="result-congrats">🎉 Congratulation {{ studentName }}</h1>
+          <p class="result-sub">Good job</p>
+        </div>
+
+        <!-- Accuracy -->
+        <div class="result-accuracy">
+          <h3 class="result-section-title">Let's check your statistic</h3>
+          <div class="accuracy-circle">
+            <span class="accuracy-number">{{ scorePercentage }}%</span>
+          </div>
+          <p class="accuracy-label">Accuracy</p>
+        </div>
+
+        <!-- Performance -->
+        <div class="result-performance">
+          <h4 class="performance-title">Performance Quiz</h4>
+          <div class="performance-item">
+            <span class="performance-icon">✅</span>
+            <span class="performance-label">Correct: {{ correctCount }}</span>
+          </div>
+          <div class="performance-item">
+            <span class="performance-icon">❌</span>
+            <span class="performance-label">Incorrect: {{ questions.length - correctCount }}</span>
+          </div>
+          <div class="performance-item">
+            <span class="performance-icon">📊</span>
+            <span class="performance-label">{{ scorePercentage }}% score</span>
+          </div>
+        </div>
+
+        <!-- Review Questions -->
+        <div class="result-review">
+          <h4 class="review-title">Review Question</h4>
+          <p class="review-sub">Your results are ready.</p>
+          
+          <div 
+            v-for="(item, index) in reviewAnswers" 
+            :key="index"
+            class="review-item"
+          >
+            <p class="review-question">{{ index + 1 }}. {{ item.question }}</p>
+            <div class="review-options">
+              <div 
+                v-for="(opt, optIndex) in item.options" 
+                :key="optIndex"
+                class="review-option"
+                :class="{
+                  'review-correct': optIndex === item.correctIndex,
+                  'review-wrong': optIndex === item.selectedIndex && optIndex !== item.correctIndex,
+                  'review-selected': optIndex === item.selectedIndex
+                }"
+              >
+                <span class="review-option-marker">
+                  {{ optIndex === item.correctIndex ? '✅' : optIndex === item.selectedIndex && optIndex !== item.correctIndex ? '❌' : '○' }}
+                </span>
+                {{ opt }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Button -->
+        <div class="result-actions">
+          <button class="btn-result-done" @click="closeResult">Done</button>
+        </div>
       </div>
     </div>
 
@@ -135,7 +201,7 @@
 
 <script>
 import { useQuizStore } from '@/stores/quizStore.js';
-import { useAuthStore } from '@/stores/authStore.js';
+import { useAuthStore } from '@/stores/auth.js';
 
 export default {
   name: 'Quiz',
@@ -155,7 +221,7 @@ export default {
       showResult: false,
       correctAnswerIndex: null,
       answersMap: {},
-      timeRemaining: 60, // Default 60 detik per soal
+      timeRemaining: 60,
       timerInterval: null,
       showResultModal: false,
       correctCount: 0,
@@ -163,7 +229,14 @@ export default {
       submitting: false,
       timeUp: false,
       isTeacherQuiz: false,
-      totalDuration: 0
+      totalDuration: 0,
+      studentName: 'Akmal',
+      reviewAnswers: [],
+      
+      // 🔥 QUIZ END POPUP
+      showQuizEndPopup: false,
+      countdown: 10,
+      countdownInterval: null
     };
   },
   computed: {
@@ -183,50 +256,49 @@ export default {
     },
     answeredCount() {
       return Object.keys(this.answersMap).length;
+    },
+    countdownPercentage() {
+      return ((10 - this.countdown) / 10) * 100;
     }
   },
   mounted() {
     this.loadQuiz();
     this.startTimer();
+    
+    const authStore = useAuthStore();
+    this.studentName = authStore.user?.full_name || localStorage.getItem('user_name') || 'Akmal';
   },
   beforeUnmount() {
     this.stopTimer();
+    this.stopCountdown();
   },
   methods: {
     async loadQuiz() {
       try {
         const quizId = this.quizId;
-        console.log('📌 Loading quiz ID:', quizId);
         
-        // Cek localStorage dulu
         const savedQuestions = localStorage.getItem('current_quiz_questions');
         const savedTitle = localStorage.getItem('current_quiz_title') || 'Quiz';
         const savedDuration = parseInt(localStorage.getItem('current_quiz_duration')) || 60;
         
-        // 🔥 CEK APAKAH QUIZ DARI GURU ATAU DEFAULT
         const publishedQuizzes = JSON.parse(localStorage.getItem('published_quizzes') || '[]');
         const foundQuiz = publishedQuizzes.find(q => q.id === Number(quizId));
         
         if (foundQuiz) {
           this.isTeacherQuiz = true;
           this.totalDuration = foundQuiz.total_time || 10;
-          // Timer per soal = total_duration / jumlah soal (dalam detik)
           const totalQuestions = foundQuiz.questions?.length || 5;
           this.timeRemaining = Math.floor((foundQuiz.total_time * 60) / totalQuestions);
           if (this.timeRemaining < 10) this.timeRemaining = 10;
-          console.log('📌 Teacher quiz - time per question:', this.timeRemaining, 'seconds');
         } else {
           this.isTeacherQuiz = false;
-          // Default: 60 detik per soal
           this.timeRemaining = 60;
-          console.log('📌 Default quiz - 60 seconds per question');
         }
         
         if (savedQuestions) {
           try {
             const questions = JSON.parse(savedQuestions);
             if (questions && questions.length > 0) {
-              console.log('📚 Loaded questions from localStorage:', questions.length);
               this.quizTitle = savedTitle;
               this.questions = questions.map(q => ({
                 id: q.id || Date.now(),
@@ -245,7 +317,6 @@ export default {
           }
         }
         
-        // Coba dari store (API)
         const quizStore = useQuizStore();
         const result = await quizStore.fetchQuizDetail(quizId);
         
@@ -268,7 +339,6 @@ export default {
           }
         }
         
-        // Fallback mock data
         this.loadMockData();
         
       } catch (error) {
@@ -293,11 +363,11 @@ export default {
         },
         {
           id: 2,
-          question: 'Siapa presiden pertama Indonesia?',
-          options: ['Soekarno', 'Soeharto', 'Habibie', 'Gus Dur'],
+          question: 'Siapa presiden ke 3 Indonesia?',
+          options: ['Megawati', 'B.J. Habibie', 'Jokowi', 'SBY'],
           question_image: null,
           options_images: [],
-          correct_index: 0,
+          correct_index: 1,
           points: 1
         },
         {
@@ -311,26 +381,18 @@ export default {
         }
       ];
       this.answersMap = {};
-      console.log('📚 Loaded mock questions:', this.questions.length);
     },
 
     startTimer() {
       this.stopTimer();
       this.timerInterval = setInterval(() => {
         this.timeRemaining--;
-        
-        // 🔥 AUTO NEXT KALAU WAKTU HABIS
         if (this.timeRemaining <= 0) {
           this.timeUp = true;
           this.stopTimer();
-          
-          // Tandai jawaban kosong
-          if (this.selectedAnswer === null) {
-            // Otomatis next ke soal berikutnya setelah 1 detik
-            setTimeout(() => {
-              this.autoNextQuestion();
-            }, 1000);
-          }
+          setTimeout(() => {
+            this.autoNextQuestion();
+          }, 1000);
         }
       }, 1000);
     },
@@ -342,12 +404,9 @@ export default {
       }
     },
 
-    // 🔥 AUTO NEXT KE SOAL BERIKUTNYA
     autoNextQuestion() {
-      // Jika belum menjawab, tandai sebagai tidak dijawab
       if (this.selectedAnswer === null && this.answersMap[this.currentIndex] === undefined) {
-        // Lewati soal (tidak dijawab)
-        console.log('⏰ Time up - skipping question', this.currentIndex + 1);
+        // Skip question
       }
       
       this.timeUp = false;
@@ -355,7 +414,6 @@ export default {
       this.showResult = false;
       this.correctAnswerIndex = null;
       
-      // Reset timer untuk soal berikutnya
       const totalQuestions = this.questions.length;
       if (this.isTeacherQuiz) {
         this.timeRemaining = Math.floor((this.totalDuration * 60) / totalQuestions);
@@ -365,7 +423,6 @@ export default {
       }
       
       if (this.isLastQuestion) {
-        // Jika sudah di soal terakhir, submit otomatis
         this.submitAllAnswers();
       } else {
         this.currentIndex++;
@@ -376,16 +433,12 @@ export default {
     selectOption(index) {
       if (!this.showResult && !this.timeUp) {
         this.selectedAnswer = index;
-        // Simpan jawaban di map
         this.answersMap[this.currentIndex] = index;
-        console.log('📌 Answer saved:', this.currentIndex, index);
-        console.log('📌 All answers:', this.answersMap);
       }
     },
 
     nextQuestion() {
       if (this.currentIndex < this.questions.length - 1) {
-        // Reset state untuk soal berikutnya
         this.selectedAnswer = this.answersMap[this.currentIndex + 1] !== undefined ? 
           this.answersMap[this.currentIndex + 1] : null;
         this.showResult = false;
@@ -393,7 +446,6 @@ export default {
         this.timeUp = false;
         this.currentIndex++;
         
-        // Reset timer
         this.stopTimer();
         const totalQuestions = this.questions.length;
         if (this.isTeacherQuiz) {
@@ -415,7 +467,6 @@ export default {
         this.timeUp = false;
         this.currentIndex--;
         
-        // Reset timer
         this.stopTimer();
         const totalQuestions = this.questions.length;
         if (this.isTeacherQuiz) {
@@ -449,10 +500,9 @@ export default {
       this.submitting = true;
 
       try {
-        console.log('📌 Submitting all answers:', this.answersMap);
-
         let correct = 0;
         const answerDetails = [];
+        const reviewData = [];
 
         for (let i = 0; i < this.questions.length; i++) {
           const question = this.questions[i];
@@ -467,6 +517,13 @@ export default {
             correct: question.correct_index,
             is_correct: isCorrect
           });
+
+          reviewData.push({
+            question: question.question,
+            options: question.options || [],
+            selectedIndex: selected,
+            correctIndex: question.correct_index
+          });
         }
 
         const totalQuestions = this.questions.length;
@@ -474,12 +531,10 @@ export default {
 
         this.correctCount = correct;
         this.scorePercentage = score;
+        this.reviewAnswers = reviewData;
 
         // Simpan hasil
-        const studentName = this.authStore?.user?.full_name || 
-                           localStorage.getItem('user_name') || 
-                           'Student';
-
+        const studentName = this.studentName;
         const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
         const quizId = this.quizId;
 
@@ -525,18 +580,43 @@ export default {
           score: score,
           correct: correct,
           emoji: '📝',
-          cover_image: localStorage.getItem('current_quiz_cover') || null
+          cover_image: localStorage.getItem('current_quiz_cover') || null,
+          subject: localStorage.getItem('current_quiz_subject') || 'General'
         };
         localStorage.setItem('quiz_result', JSON.stringify(quizResult));
 
         this.stopTimer();
-        this.showResultModal = true;
+        
+        // 🔥 TAMPILKAN POPUP QUIZ END
+        this.showQuizEndPopup = true;
+        this.startCountdown();
 
       } catch (error) {
         console.error('Submit error:', error);
         alert('❌ Gagal submit quiz. Silakan coba lagi.');
       } finally {
         this.submitting = false;
+      }
+    },
+
+    // 🔥 COUNTDOWN UNTUK QUIZ END POPUP
+    startCountdown() {
+      this.countdown = 10;
+      this.countdownInterval = setInterval(() => {
+        this.countdown--;
+        if (this.countdown <= 0) {
+          this.stopCountdown();
+          this.showQuizEndPopup = false;
+          // 🔥 TAMPILKAN HASIL
+          this.showResultModal = true;
+        }
+      }, 1000);
+    },
+
+    stopCountdown() {
+      if (this.countdownInterval) {
+        clearInterval(this.countdownInterval);
+        this.countdownInterval = null;
       }
     },
 
@@ -583,6 +663,7 @@ export default {
   padding: 16px 20px 20px;
 }
 
+/* ===== HEADER ===== */
 .quiz-header {
   display: flex;
   justify-content: space-between;
@@ -605,8 +686,6 @@ export default {
   padding: 4px 8px;
   border-radius: 6px;
   transition: all 0.2s;
-  display: flex;
-  align-items: center;
 }
 
 .btn-back:hover {
@@ -624,11 +703,6 @@ export default {
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-.timer-container {
-  display: flex;
-  align-items: center;
 }
 
 .timer-circle {
@@ -668,12 +742,6 @@ export default {
   color: #1e293b;
 }
 
-.question-number {
-  font-size: 15px;
-  font-weight: 500;
-  color: #1e293b;
-}
-
 .progress-bar {
   width: 100%;
   height: 4px;
@@ -690,6 +758,7 @@ export default {
   transition: width 0.3s ease;
 }
 
+/* ===== BODY ===== */
 .quiz-body {
   flex: 1;
   display: flex;
@@ -813,7 +882,6 @@ export default {
   max-height: 40px;
   border-radius: 4px;
   object-fit: cover;
-  vertical-align: middle;
 }
 
 .option-text {
@@ -859,6 +927,7 @@ export default {
   cursor: not-allowed;
 }
 
+/* ===== FOOTER ===== */
 .quiz-footer {
   padding: 12px 0 0 0;
   border-top: 1px solid #f1f5f9;
@@ -914,11 +983,103 @@ export default {
 .btn-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
+}
+
+/* ===== QUIZ END POPUP ===== */
+.quiz-end-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.5s ease;
+}
+
+.quiz-end-card {
+  background: white;
+  padding: 40px 48px;
+  border-radius: 24px;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  animation: slideUp 0.5s ease;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+}
+
+.quiz-end-icon {
+  font-size: 64px;
+  margin-bottom: 12px;
+}
+
+.quiz-end-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.quiz-end-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 24px;
+}
+
+.quiz-end-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.timer-circle-end {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timer-text-end {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+}
+
+.timer-label {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.quiz-end-progress {
+  width: 100%;
+}
+
+.progress-bar-end {
+  width: 100%;
+  height: 4px;
+  background: #f1f5f9;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill-end {
+  height: 100%;
+  background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+  border-radius: 2px;
+  transition: width 1s linear;
 }
 
 /* ===== RESULT MODAL ===== */
-.result-modal-overlay {
+.result-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -930,74 +1091,201 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 999;
+  overflow-y: auto;
+  padding: 20px;
 }
 
-.result-modal {
+.result-card {
   background: white;
-  padding: 32px 28px 28px;
-  border-radius: 16px;
-  text-align: center;
-  max-width: 400px;
-  width: 90%;
-  animation: modalIn 0.3s ease-out;
+  border-radius: 20px;
+  padding: 32px 32px 24px;
+  max-width: 580px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.4s ease;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
-@keyframes modalIn {
+@keyframes slideUp {
   from {
     opacity: 0;
-    transform: scale(0.9);
+    transform: translateY(30px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
-.result-icon {
-  font-size: 52px;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Result Header */
+.result-header {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.result-congrats {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.result-sub {
+  font-size: 14px;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+/* Accuracy */
+.result-accuracy {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.result-section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+  margin-bottom: 16px;
+}
+
+.accuracy-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #6c5ce7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+}
+
+.accuracy-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+}
+
+.accuracy-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+/* Performance */
+.result-performance {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.performance-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-bottom: 8px;
 }
 
-.result-title {
-  font-size: 20px;
+.performance-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.performance-icon {
+  font-size: 16px;
+}
+
+.performance-label {
+  font-size: 14px;
+  color: #1e293b;
+}
+
+/* Review */
+.result-review {
+  margin-bottom: 20px;
+}
+
+.review-title {
+  font-size: 14px;
   font-weight: 600;
   color: #1e293b;
-  margin: 0 0 10px 0;
+  margin-bottom: 2px;
 }
 
-.result-score {
-  font-size: 40px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.score-number {
-  color: #6c5ce7;
-}
-
-.score-total {
-  font-size: 22px;
+.review-sub {
+  font-size: 12px;
   color: #94a3b8;
+  margin-bottom: 12px;
 }
 
-.result-percentage {
-  font-size: 16px;
+.review-item {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.review-question {
+  font-size: 13px;
   font-weight: 500;
-  color: #64748b;
-  margin: 4px 0 12px 0;
+  color: #1e293b;
+  margin-bottom: 6px;
 }
 
-.result-details {
+.review-options {
   display: flex;
-  justify-content: center;
-  gap: 20px;
-  font-size: 14px;
-  color: #64748b;
-  margin-bottom: 18px;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.btn-result-close {
-  padding: 10px 44px;
+.review-option {
+  font-size: 13px;
+  color: #64748b;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-option-marker {
+  font-size: 14px;
+  min-width: 20px;
+}
+
+.review-correct {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.review-wrong {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.review-selected {
+  font-weight: 500;
+}
+
+/* Result Actions */
+.result-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-result-done {
+  padding: 10px 36px;
   background: #6c5ce7;
   color: white;
   border: none;
@@ -1009,7 +1297,7 @@ export default {
   transition: all 0.3s;
 }
 
-.btn-result-close:hover {
+.btn-result-done:hover {
   background: #5a4bd1;
   transform: translateY(-2px);
 }
@@ -1049,6 +1337,18 @@ export default {
   
   .btn-submit {
     width: 100%;
+  }
+  
+  .quiz-end-card {
+    padding: 28px 20px;
+  }
+  
+  .result-card {
+    padding: 20px 16px;
+  }
+  
+  .result-congrats {
+    font-size: 18px;
   }
 }
 </style>
