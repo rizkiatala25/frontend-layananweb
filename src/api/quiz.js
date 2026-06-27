@@ -7,7 +7,7 @@ export const quizApi = {
    * 🔥 Create a new quiz
    */
   async createQuiz(quizData) {
-    const response = await api.post('/quizzes', quizData);
+    const response = await api.post('/api/quizzes', quizData);
     return response.data;
   },
 
@@ -15,7 +15,7 @@ export const quizApi = {
    * 🔥 Update an existing quiz
    */
   async updateQuiz(id, quizData) {
-    const response = await api.put(`/quizzes/${id}`, quizData);
+    const response = await api.put(`/api/quizzes/${id}`, quizData);
     return response.data;
   },
 
@@ -23,7 +23,7 @@ export const quizApi = {
    * 🔥 Delete a quiz
    */
   async deleteQuiz(id) {
-    const response = await api.delete(`/quizzes/${id}`);
+    const response = await api.delete(`/api/quizzes/${id}`);
     return response.data;
   },
 
@@ -31,7 +31,7 @@ export const quizApi = {
    * 🔥 Toggle quiz visibility (publish/private)
    */
   async toggleVisibility(id) {
-    const response = await api.patch(`/quizzes/${id}/visibility`);
+    const response = await api.patch(`/api/quizzes/${id}/visibility`);
     return response.data;
   },
 
@@ -39,7 +39,7 @@ export const quizApi = {
    * 🔥 Publish a quiz (generate join code)
    */
   async publishQuiz(id) {
-    const response = await api.post(`/quizzes/${id}/publish`);
+    const response = await api.post(`/api/quizzes/${id}/publish`);
     return response.data;
   },
 
@@ -47,7 +47,15 @@ export const quizApi = {
    * 🔥 Get teacher's quizzes
    */
   async getTeacherQuizzes() {
-    const response = await api.get('/teacher/quizzes');
+    const response = await api.get('/api/teacher/quizzes');
+    return response.data;
+  },
+
+  /**
+   * 🔥 Get quiz results (nilai siswa)
+   */
+  async getQuizResults(quizId) {
+    const response = await api.get(`/api/quizzes/${quizId}/results`);
     return response.data;
   },
 
@@ -57,7 +65,7 @@ export const quizApi = {
    * 🔥 Get all published quizzes
    */
   async getQuizzes() {
-    const response = await api.get('/quizzes');
+    const response = await api.get('/api/quizzes');
     return response.data;
   },
 
@@ -65,7 +73,7 @@ export const quizApi = {
    * 🔥 Get quiz detail by ID
    */
   async getQuizDetail(id) {
-    const response = await api.get(`/quizzes/${id}`);
+    const response = await api.get(`/api/quizzes/${id}`);
     return response.data;
   },
 
@@ -73,7 +81,7 @@ export const quizApi = {
    * 🔥 Join quiz by join code
    */
   async joinQuiz(joinCode) {
-    const response = await api.post(`/quizzes/join/${joinCode}`);
+    const response = await api.post(`/api/quizzes/join/${joinCode}`);
     return response.data;
   },
 
@@ -81,7 +89,7 @@ export const quizApi = {
    * 🔥 Start a quiz
    */
   async startQuiz(id) {
-    const response = await api.post(`/quizzes/${id}/start`);
+    const response = await api.post(`/api/quizzes/${id}/start`);
     return response.data;
   },
 
@@ -89,7 +97,7 @@ export const quizApi = {
    * 🔥 Submit answer for a question
    */
   async submitAnswer(quizId, answerData) {
-    const response = await api.post(`/quizzes/${quizId}/submit`, answerData);
+    const response = await api.post(`/api/quizzes/${quizId}/submit`, answerData);
     return response.data;
   },
 
@@ -97,7 +105,7 @@ export const quizApi = {
    * 🔥 Get quiz result
    */
   async getResult(quizId) {
-    const response = await api.get(`/quizzes/${quizId}/result`);
+    const response = await api.get(`/api/quizzes/${quizId}/result`);
     return response.data;
   },
 
@@ -105,7 +113,7 @@ export const quizApi = {
    * 🔥 Get student's quizzes
    */
   async getStudentQuizzes() {
-    const response = await api.get('/student/quizzes');
+    const response = await api.get('/api/student/quizzes');
     return response.data;
   }
 };

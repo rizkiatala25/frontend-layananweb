@@ -1,7 +1,7 @@
 <template>
   <div class="create-quiz-page">
     
-    <!-- ===== HEADER ===== -->
+    <!-- HEADER -->
     <header class="page-header">
       <div class="header-left">
         <button class="btn-back" @click="goBack">
@@ -17,7 +17,7 @@
       </div>
     </header>
 
-    <!-- ===== BODY ===== -->
+    <!-- BODY -->
     <main class="page-body">
       
       <!-- QUIZ SETTINGS -->
@@ -45,7 +45,6 @@
           </div>
         </div>
 
-        <!-- 🔥 DURASI & POIN SEJAJAR -->
         <div class="settings-row">
           <div class="setting-item">
             <label>Duration (minutes)</label>
@@ -61,11 +60,12 @@
           </div>
         </div>
 
-        <!-- Cover Image Upload -->
+        <!-- 🔥 COVER IMAGE DENGAN KOMPRESI -->
         <div class="cover-upload" @click="triggerCoverUpload">
           <div v-if="coverImage" class="cover-preview">
             <img :src="coverImage" alt="Cover" />
             <button class="btn-remove-cover" @click.stop="removeCover">✕</button>
+            <span class="cover-size">📦 {{ Math.round(coverImage.length / 1024) }} KB</span>
           </div>
           <div v-else class="cover-placeholder">
             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -74,7 +74,7 @@
               <polyline points="21 15 16 10 5 21"></polyline>
             </svg>
             <span>Click to upload cover image</span>
-            <span class="cover-hint">Supported: JPG, PNG, GIF (Max 2MB)</span>
+            <span class="cover-hint">Recommended: JPG, PNG (Auto compressed to &lt; 200KB)</span>
           </div>
           <input type="file" ref="coverInput" accept="image/*" @change="handleCoverUpload" style="display: none" />
         </div>
@@ -149,7 +149,6 @@
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </button>
-          <!-- 🔥 TOMBOL HAPUS OPSI -->
           <button 
             v-if="options.length > 2"
             class="btn-remove-option" 
@@ -180,7 +179,7 @@
 
     </main>
 
-    <!-- ===== IMAGE MODAL ===== -->
+    <!-- IMAGE MODAL -->
     <div v-if="showImageModal" class="modal-overlay" @click.self="showImageModal = false">
       <div class="modal-card">
         <h3>Insert Image</h3>
@@ -203,13 +202,10 @@ export default {
   emits: ['back', 'quiz-saved', 'go-to-preview'],
   data() {
     return {
-      // Quiz Settings
       quizTitle: '',
       selectedSubject: '',
       totalDuration: 10,
       coverImage: null,
-      
-      // Question
       questionText: '',
       points: 1,
       layout: 'vertical',
@@ -221,12 +217,11 @@ export default {
       ],
       savedQuestions: [],
       questionImage: null,
-      
-      // UI
       showImageModal: false,
       imageTarget: null,
       imageTargetIndex: null,
-      imageFile: null
+      imageFile: null,
+      isSaving: false
     };
   },
   methods: {
@@ -241,24 +236,69 @@ export default {
       }
     },
 
-    // ===== QUIZ SETTINGS =====
+    // ===== 🔥 COVER IMAGE WITH COMPRESSION =====
     triggerCoverUpload() {
       this.$refs.coverInput.click();
     },
-    handleCoverUpload(event) {
+    
+    async handleCoverUpload(event) {
       const file = event.target.files[0];
-      if (file) {
-        if (file.size > 2 * 1024 * 1024) {
-          alert('Ukuran gambar terlalu besar! Maksimal 2MB.');
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          this.coverImage = e.target.result;
-        };
-        reader.readAsDataURL(file);
+      if (!file) return;
+      
+      // Validasi ukuran
+      if (file.size > 5 * 1024 * 1024) {
+        alert('❌ Ukuran gambar terlalu besar! Maksimal 5MB.');
+        this.$refs.coverInput.value = '';
+        return;
+      }
+      
+      try {
+        // 🔥 KOMPRES GAMBAR
+        const compressed = await this.compressImage(file);
+        this.coverImage = compressed;
+        console.log('📦 Cover image compressed:', Math.round(compressed.length / 1024), 'KB');
+        this.$refs.coverInput.value = '';
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        alert('❌ Gagal memproses gambar. Silakan coba lagi.');
+        this.$refs.coverInput.value = '';
       }
     },
+
+    // 🔥 KOMPRESI GAMBAR
+    compressImage(file, maxWidth = 800, quality = 0.7) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            
+            // Resize jika terlalu besar
+            if (width > maxWidth) {
+              height = (height / width) * maxWidth;
+              width = maxWidth;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Kompres ke JPEG
+            const compressed = canvas.toDataURL('image/jpeg', quality);
+            resolve(compressed);
+          };
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+    },
+
     removeCover() {
       this.coverImage = null;
       this.$refs.coverInput.value = '';
@@ -285,7 +325,6 @@ export default {
       }
       if (confirm('Hapus opsi ini?')) {
         this.options.splice(index, 1);
-        // Jika opsi yang dihapus adalah jawaban benar, set ulang
         const hasCorrect = this.options.some(opt => opt.isCorrect);
         if (!hasCorrect && this.options.length > 0) {
           this.options[0].isCorrect = true;
@@ -304,11 +343,9 @@ export default {
     applyFormat(format) {
       const textarea = document.querySelector('.question-input');
       if (!textarea) return;
-      
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
       const selectedText = this.questionText.substring(start, end);
-      
       let formattedText = '';
       switch(format) {
         case 'bold': formattedText = `**${selectedText}**`; break;
@@ -317,7 +354,6 @@ export default {
         case 'strike': formattedText = `~~${selectedText}~~`; break;
         default: formattedText = selectedText;
       }
-      
       this.questionText = this.questionText.substring(0, start) + formattedText + this.questionText.substring(end);
     },
 
@@ -328,8 +364,19 @@ export default {
       this.showImageModal = true;
       this.imageFile = null;
     },
-    handleImageUpload(event) {
-      this.imageFile = event.target.files[0];
+    async handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        try {
+          // 🔥 KOMPRES GAMBAR UNTUK SOAL/OPTION
+          const compressed = await this.compressImage(file, 400, 0.6);
+          this.imageFile = compressed;
+          console.log('📦 Image compressed for', this.imageTarget);
+        } catch (error) {
+          console.error('Error compressing image:', error);
+          alert('❌ Gagal memproses gambar');
+        }
+      }
     },
     insertImage() {
       if (!this.imageFile) {
@@ -337,20 +384,16 @@ export default {
         return;
       }
       
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageData = e.target.result;
-        
-        if (this.imageTarget === 'question') {
-          this.questionImage = imageData;
-        } else if (this.imageTarget === 'option' && this.imageTargetIndex !== null) {
-          this.options[this.imageTargetIndex].image = imageData;
-        }
-        
-        this.showImageModal = false;
-        this.imageFile = null;
-      };
-      reader.readAsDataURL(this.imageFile);
+      const imageData = this.imageFile;
+      
+      if (this.imageTarget === 'question') {
+        this.questionImage = imageData;
+      } else if (this.imageTarget === 'option' && this.imageTargetIndex !== null) {
+        this.options[this.imageTargetIndex].image = imageData;
+      }
+      
+      this.showImageModal = false;
+      this.imageFile = null;
     },
     removeQuestionImage() {
       this.questionImage = null;
@@ -365,19 +408,16 @@ export default {
         alert('Please enter a question');
         return;
       }
-      
       const hasCorrect = this.options.some(opt => opt.isCorrect);
       if (!hasCorrect) {
         alert('Please mark the correct answer');
         return;
       }
-      
       const hasEmptyOption = this.options.some(opt => !opt.text.trim());
       if (hasEmptyOption) {
         alert('Please fill in all options');
         return;
       }
-      
       const questionData = {
         id: Date.now(),
         question: this.questionText,
@@ -387,11 +427,8 @@ export default {
         correct_index: this.options.findIndex(opt => opt.isCorrect),
         points: this.points
       };
-      
       this.savedQuestions.push(questionData);
       alert(`✅ Question saved! (${this.savedQuestions.length} total)`);
-      
-      // Reset
       this.questionText = '';
       this.questionImage = null;
       this.options = [
@@ -403,51 +440,71 @@ export default {
       this.options[0].isCorrect = true;
     },
 
-    // ===== SAVE QUIZ =====
+    // ===== 🔥 SAVE QUIZ - DENGAN VALIDASI GAMBAR =====
     async saveQuiz() {
+      if (this.isSaving) return;
+      
+      // Validasi
       if (this.savedQuestions.length === 0) {
-        alert('Please save at least one question first!');
+        alert('⚠️ Please save at least one question first!');
         return;
       }
-      
       if (!this.quizTitle.trim()) {
-        alert('Please enter a quiz title');
+        alert('⚠️ Please enter a quiz title');
         return;
       }
-      
       if (!this.selectedSubject) {
-        alert('Please select a subject');
+        alert('⚠️ Please select a subject');
         return;
       }
-      
-      const quizData = {
-        title: this.quizTitle,
-        subject: this.selectedSubject,
-        cover_image: this.coverImage,
-        total_time: this.totalDuration,
-        questions: this.savedQuestions.map(q => ({
-          question: q.question,
-          question_image: q.question_image || null,
-          options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-          options_images: q.options_images || [],
-          correct_index: q.correct_index || 0,
-          points: q.points || 1
-        }))
-      };
-      
+      if (!this.totalDuration || this.totalDuration < 1) {
+        alert('⚠️ Please enter a valid duration (minimum 1 minute)');
+        return;
+      }
+
+      this.isSaving = true;
+
       try {
+        // 🔥 CEK UKURAN GAMBAR COVER
+        let finalCoverImage = this.coverImage;
+        if (finalCoverImage && finalCoverImage.length > 500 * 1024) {
+          console.warn('⚠️ Cover image too large, using default');
+          finalCoverImage = null; // Skip gambar jika terlalu besar
+        }
+
+        const quizData = {
+          title: this.quizTitle,
+          subject: this.selectedSubject,
+          cover_image: finalCoverImage || null, // 🔥 NULL JIKA TERLALU BESAR
+          total_time: this.totalDuration,
+          visibility: 'private',
+          questions: this.savedQuestions.map(q => ({
+            question: q.question,
+            question_image: q.question_image && q.question_image.length < 300 * 1024 ? q.question_image : null,
+            options: q.options || [],
+            options_images: q.options_images || [],
+            correct_index: q.correct_index || 0,
+            points: q.points || 1
+          }))
+        };
+
+        console.log('📤 Saving quiz with compressed data...');
         const quizStore = useQuizStore();
         const result = await quizStore.createQuiz(quizData);
         
         if (result.success) {
-          console.log('📚 Quiz saved:', result.data);
-          this.$emit('go-to-preview');
+          alert(`✅ Quiz "${this.quizTitle}" berhasil disimpan!\n📝 ${this.savedQuestions.length} questions saved.\n⏱️ ${this.totalDuration} minutes duration.`);
+          setTimeout(() => {
+            this.$emit('go-to-preview');
+          }, 1000);
         } else {
-          alert('❌ Gagal menyimpan quiz: ' + result.message);
+          alert('❌ Gagal menyimpan quiz: ' + (result.message || 'Terjadi kesalahan'));
         }
       } catch (error) {
         console.error('Error saving quiz:', error);
-        alert('❌ Gagal menyimpan quiz. Silakan coba lagi.');
+        alert('❌ Gagal menyimpan quiz. Silakan coba lagi.\n' + (error.message || ''));
+      } finally {
+        this.isSaving = false;
       }
     }
   },
@@ -458,6 +515,7 @@ export default {
 </script>
 
 <style scoped>
+/* ... style tetap sama seperti sebelumnya ... */
 * {
   margin: 0;
   padding: 0;
@@ -473,7 +531,6 @@ export default {
   flex-direction: column;
 }
 
-/* HEADER */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -532,7 +589,6 @@ export default {
   transform: translateY(-2px);
 }
 
-/* BODY */
 .page-body {
   flex: 1;
   padding-top: 20px;
@@ -541,7 +597,6 @@ export default {
   width: 100%;
 }
 
-/* QUIZ SETTINGS */
 .quiz-settings {
   background: #f8fafc;
   border-radius: 12px;
@@ -593,7 +648,6 @@ export default {
   border-color: #6c5ce7;
 }
 
-/* POINTS */
 .points-wrapper {
   display: flex;
   align-items: center;
@@ -629,7 +683,6 @@ export default {
   text-align: center;
 }
 
-/* COVER UPLOAD */
 .cover-upload {
   margin-top: 12px;
   cursor: pointer;
@@ -703,7 +756,17 @@ export default {
   transform: scale(1.1);
 }
 
-/* QUESTION TYPE */
+.cover-size {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
 .question-type {
   margin-bottom: 16px;
 }
@@ -725,13 +788,13 @@ export default {
   font-family: 'Poppins', sans-serif;
   cursor: pointer;
   transition: all 0.3s;
+  margin-left: auto;
 }
 
 .btn-save-question:hover {
   background: #5a4bd1;
 }
 
-/* QUESTION INPUT */
 .question-input-area {
   margin-bottom: 24px;
   border: 1px solid #e2e8f0;
@@ -825,7 +888,6 @@ export default {
   justify-content: center;
 }
 
-/* OPTIONS */
 .options-area {
   display: flex;
   flex-direction: column;
@@ -953,7 +1015,6 @@ export default {
   color: white;
 }
 
-/* 🔥 TOMBOL HAPUS OPSI */
 .btn-remove-option {
   background: none;
   border: none;
@@ -970,7 +1031,6 @@ export default {
   color: #dc2626;
 }
 
-/* ADD OPTION */
 .btn-add-option {
   display: flex;
   align-items: center;
@@ -995,7 +1055,6 @@ export default {
   background: #f8f7ff;
 }
 
-/* LAYOUT SWITCH */
 .layout-switch {
   margin-top: 20px;
   display: flex;
@@ -1022,7 +1081,6 @@ export default {
   color: #1e293b;
 }
 
-/* QUESTIONS COUNTER */
 .questions-counter {
   margin-top: 16px;
   padding: 12px 16px;
@@ -1037,7 +1095,6 @@ export default {
   margin: 0;
 }
 
-/* MODAL */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1123,6 +1180,7 @@ export default {
   
   .btn-save-question {
     width: 100%;
+    margin-left: 0;
   }
   
   .options-area.horizontal {

@@ -8,13 +8,13 @@
       </div>
 
       <nav class="menu">
-        <button class="menu-item active" @click="currentTab = 'home'">
+        <button class="menu-item" :class="{ active: currentTab === 'home' }" @click="currentTab = 'home'">
           <span>🏠</span> Home
         </button>
-        <button class="menu-item" @click="currentTab = 'library'">
+        <button class="menu-item" :class="{ active: currentTab === 'library' }" @click="currentTab = 'library'">
           <span>📚</span> My Library
         </button>
-        <button class="menu-item" @click="logout">
+        <button class="menu-item" @click="handleLogout">
           <span>🚪</span> Logout
         </button>
       </nav>
@@ -27,12 +27,12 @@
 
     <!-- MAIN CONTENT -->
     <main class="content">
+      
       <!-- HOME TAB -->
       <div v-if="currentTab === 'home'" class="home-tab">
         <h1>Hello, {{ teacherName }}! 👋</h1>
         <p class="subtitle">Let's create a new quiz!</p>
 
-        <!-- 🔥 TOMBOL CREATE QUIZ - LANGSUNG KE HALAMAN CREATE -->
         <button class="btn-create" @click="goToCreateQuiz">
           ✏️ Create New Quiz
         </button>
@@ -61,7 +61,12 @@
         <h1>📚 My Library</h1>
         
         <div class="search-bar">
-          <input type="text" v-model="searchQuery" placeholder="🔍 Search quizzes..." class="search-input" />
+          <input 
+            type="text" 
+            v-model="searchQuery" 
+            placeholder="🔍 Search quizzes..."
+            class="search-input"
+          />
           <button class="btn-refresh" @click="loadQuizzes">🔄 Refresh</button>
         </div>
 
@@ -91,9 +96,20 @@
                 🔑 Join Code: <strong>{{ quiz.join_code }}</strong>
                 <button class="btn-copy" @click="copyCode(quiz.join_code)">📋</button>
               </p>
+              <p v-else>
+                <span class="private-hint">🔒 Private - Publish to get join code</span>
+              </p>
             </div>
             <div class="quiz-actions">
-              <button class="btn-toggle" @click="toggleVisibility(quiz.id)">
+              <!-- 🔥 TOMBOL VIEW DETAIL -->
+              <button class="btn-view" @click="openDetailModal(quiz)">
+                👁️ View
+              </button>
+              <button 
+                class="btn-publish" 
+                @click="toggleVisibility(quiz.id)"
+                :class="quiz.visibility === 'publish' ? 'btn-private' : 'btn-publish-action'"
+              >
                 {{ quiz.visibility === 'publish' ? '🔒 Make Private' : '🌍 Publish' }}
               </button>
               <button class="btn-delete" @click="deleteQuiz(quiz.id)">🗑️ Delete</button>
@@ -101,26 +117,153 @@
           </div>
         </div>
       </div>
+
     </main>
+
+    <!-- ===== DETAIL MODAL ===== -->
+    <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
+      <div class="modal-detail">
+        <button class="modal-close" @click="closeDetailModal">✕</button>
+        
+        <div class="modal-header">
+          <h2 class="modal-title">{{ selectedQuiz?.title || 'Quiz Details' }}</h2>
+          <span class="modal-subject">📖 {{ selectedQuiz?.subject || 'General' }}</span>
+        </div>
+
+        <!-- Info Quiz -->
+        <div class="quiz-info-detail">
+          <div class="info-item">
+            <span class="info-label">📝 Questions</span>
+            <span class="info-value">{{ selectedQuiz?.questions?.length || 0 }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">⏱️ Duration</span>
+            <span class="info-value">{{ selectedQuiz?.total_time || 0 }} min</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">📊 Status</span>
+            <span class="status-badge" :class="selectedQuiz?.visibility">
+              {{ selectedQuiz?.visibility === 'publish' ? '✅ Published' : '🔒 Private' }}
+            </span>
+          </div>
+          <div class="info-item" v-if="selectedQuiz?.visibility === 'publish'">
+            <span class="info-label">🔑 Join Code</span>
+            <span class="info-value code">{{ selectedQuiz?.join_code }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">👥 Total Siswa</span>
+            <span class="info-value">{{ nilaiSiswa.length }}</span>
+          </div>
+        </div>
+
+        <!-- Statistik Nilai -->
+        <div v-if="nilaiSiswa.length > 0" class="stats-row">
+          <div class="stat-box">
+            <span class="stat-number">{{ averageScore }}%</span>
+            <span class="stat-label">Rata-rata</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-number">{{ highestScore }}%</span>
+            <span class="stat-label">Tertinggi</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-number">{{ lowestScore }}%</span>
+            <span class="stat-label">Terendah</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-number">{{ nilaiSiswa.length }}</span>
+            <span class="stat-label">Total Siswa</span>
+          </div>
+        </div>
+
+        <!-- Daftar Nilai Siswa -->
+        <h3 class="section-title">📊 Daftar Nilai Siswa</h3>
+        
+        <div v-if="loadingNilai" class="loading-state">
+          <div class="spinner-small"></div>
+          <p>Loading data...</p>
+        </div>
+
+        <div v-else-if="nilaiSiswa.length === 0" class="empty-nilai">
+          <p>📭 Belum ada siswa yang mengerjakan quiz ini.</p>
+        </div>
+
+        <div v-else class="nilai-table">
+          <div class="table-header">
+            <div class="col-rank">#</div>
+            <div class="col-name">Nama Siswa</div>
+            <div class="col-correct">✅ Benar</div>
+            <div class="col-total">📝 Total</div>
+            <div class="col-score">🎯 Nilai</div>
+            <div class="col-status">Status</div>
+          </div>
+
+          <div 
+            v-for="(item, index) in sortedNilai" 
+            :key="index"
+            class="table-row"
+            :class="{ 'row-top': index < 3 }"
+          >
+            <div class="col-rank">
+              <span class="rank-number" :class="getRankClass(index)">
+                {{ index + 1 }}
+              </span>
+            </div>
+            <div class="col-name">
+              <span class="student-avatar">👤</span>
+              {{ item.studentName }}
+            </div>
+            <div class="col-correct">{{ item.correct }}</div>
+            <div class="col-total">{{ item.total }}</div>
+            <div class="col-score">
+              <span class="score-badge" :class="getScoreClass(item.score)">
+                {{ item.score }}%
+              </span>
+            </div>
+            <div class="col-status">
+              <span class="status-badge-small" :class="item.score >= 70 ? 'lulus' : 'gagal'">
+                {{ item.score >= 70 ? '✅ Lulus' : '❌ Gagal' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-close-modal" @click="closeDetailModal">Tutup</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script>
-import { useAuthStore } from '../../stores/auth.js';
+import { useAuthStore } from '@/stores/auth.js';
+import { useQuizStore } from '@/stores/quizStore.js';
 
 export default {
   name: 'DashboardGuru',
+  emits: ['logout', 'create-quiz'],
   data() {
     return {
       currentTab: 'home',
       searchQuery: '',
       loading: false,
-      quizzes: []
+      loadingNilai: false,
+      quizzes: [],
+      showDetailModal: false,
+      selectedQuiz: null,
+      nilaiSiswa: [],
+      selectedQuizId: null
     };
   },
   computed: {
     teacherName() {
-      return localStorage.getItem('user_name') || 'Teacher';
+      const authStore = useAuthStore();
+      return authStore.user?.full_name || 
+             authStore.user?.name || 
+             localStorage.getItem('user_name') || 
+             'Teacher';
     },
     publishedCount() {
       return this.quizzes.filter(q => q.visibility === 'publish').length;
@@ -135,49 +278,186 @@ export default {
         q.title?.toLowerCase().includes(query) ||
         q.subject?.toLowerCase().includes(query)
       );
+    },
+    sortedNilai() {
+      // 🔥 URUTKAN DARI NILAI TERTINGGI KE TERENDAH
+      return [...this.nilaiSiswa].sort((a, b) => b.score - a.score);
+    },
+    averageScore() {
+      if (this.nilaiSiswa.length === 0) return 0;
+      const total = this.nilaiSiswa.reduce((sum, n) => sum + n.score, 0);
+      return Math.round(total / this.nilaiSiswa.length);
+    },
+    highestScore() {
+      if (this.nilaiSiswa.length === 0) return 0;
+      return Math.max(...this.nilaiSiswa.map(n => n.score));
+    },
+    lowestScore() {
+      if (this.nilaiSiswa.length === 0) return 0;
+      return Math.min(...this.nilaiSiswa.map(n => n.score));
     }
   },
   mounted() {
     this.loadQuizzes();
+    this.refreshInterval = setInterval(() => {
+      this.loadQuizzes();
+    }, 5000);
+  },
+  beforeUnmount() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
   },
   methods: {
+    // ===== LOAD QUIZZES =====
     async loadQuizzes() {
       this.loading = true;
-      setTimeout(() => {
-        this.quizzes = [];
+      try {
+        const quizStore = useQuizStore();
+        const result = await quizStore.fetchTeacherQuizzes();
+        if (result.success) {
+          this.quizzes = result.data || [];
+          console.log('✅ Quizzes loaded:', this.quizzes.length);
+        }
+      } catch (error) {
+        console.error('Error loading quizzes:', error);
+      } finally {
         this.loading = false;
-      }, 1000);
-    },
-    
-    // 🔥 PERBAIKI INI - LANGSUNG KE HALAMAN CREATE QUIZ
-    goToCreateQuiz() {
-      this.$router.push('/create-quiz');
-    },
-    
-    toggleVisibility(id) {
-      alert(`Toggle visibility for quiz ${id}`);
-    },
-    deleteQuiz(id) {
-      if (confirm('Are you sure you want to delete this quiz?')) {
-        alert(`Quiz ${id} deleted`);
       }
     },
+
+    // ===== OPEN DETAIL MODAL =====
+    async openDetailModal(quiz) {
+      this.selectedQuiz = quiz;
+      this.selectedQuizId = quiz.id;
+      this.showDetailModal = true;
+      this.loadingNilai = true;
+      
+      try {
+        const quizStore = useQuizStore();
+        const result = await quizStore.fetchQuizResults(quiz.id);
+        
+        if (result.success) {
+          this.nilaiSiswa = result.data || [];
+          console.log('✅ Nilai loaded:', this.nilaiSiswa.length);
+        } else {
+          this.nilaiSiswa = [];
+        }
+      } catch (error) {
+        console.error('Error loading nilai:', error);
+        this.nilaiSiswa = [];
+      } finally {
+        this.loadingNilai = false;
+      }
+    },
+
+    // ===== CLOSE DETAIL MODAL =====
+    closeDetailModal() {
+      this.showDetailModal = false;
+      this.selectedQuiz = null;
+      this.nilaiSiswa = [];
+    },
+
+    // ===== TOGGLE VISIBILITY =====
+    async toggleVisibility(id) {
+      try {
+        const quizStore = useQuizStore();
+        const quiz = this.quizzes.find(q => q.id === id);
+        const action = quiz?.visibility === 'publish' ? 'private' : 'publish';
+        
+        const confirmMsg = action === 'publish' 
+          ? '🌍 Publish quiz ini agar bisa diakses siswa?' 
+          : '🔒 Private quiz ini? Siswa tidak akan bisa melihatnya.';
+        
+        if (!confirm(confirmMsg)) return;
+        
+        const result = await quizStore.toggleVisibility(id);
+        
+        if (result.success) {
+          const newVisibility = result.data.visibility;
+          const joinCode = result.data.join_code;
+          
+          if (newVisibility === 'publish') {
+            alert(`✅ Quiz berhasil dipublikasikan!\n📋 Join Code: ${joinCode}`);
+          } else {
+            alert('🔒 Quiz berhasil di-private.');
+          }
+          
+          await this.loadQuizzes();
+        } else {
+          alert('❌ Gagal mengubah visibility: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Error toggling visibility:', error);
+        alert('❌ Terjadi kesalahan. Silakan coba lagi.');
+      }
+    },
+
+    // ===== DELETE QUIZ =====
+    async deleteQuiz(id) {
+      if (!confirm('Are you sure you want to delete this quiz?')) return;
+      
+      try {
+        const quizStore = useQuizStore();
+        const result = await quizStore.deleteQuiz(id);
+        if (result.success) {
+          await this.loadQuizzes();
+          alert('✅ Quiz deleted!');
+        } else {
+          alert('❌ Failed to delete quiz: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Error deleting quiz:', error);
+        alert('❌ Failed to delete quiz');
+      }
+    },
+
+    // ===== COPY CODE =====
     copyCode(code) {
       navigator.clipboard.writeText(code).then(() => {
         alert('✅ Join code copied!');
+      }).catch(() => {
+        alert('📋 Join code: ' + code);
       });
     },
-    logout() {
+
+    // ===== 🔥 GO TO CREATE QUIZ =====
+    goToCreateQuiz() {
+      console.log('📌 Navigating to create quiz...');
+      // 🔥 PAKAI ROUTER PUSH LANGSUNG
+      this.$router.push('/create-quiz');
+    },
+
+    // ===== GET SCORE CLASS =====
+    getScoreClass(score) {
+      if (score >= 80) return 'score-very-good';
+      if (score >= 70) return 'score-good';
+      if (score >= 50) return 'score-medium';
+      return 'score-bad';
+    },
+
+    // ===== GET RANK CLASS =====
+    getRankClass(index) {
+      if (index === 0) return 'rank-1';
+      if (index === 1) return 'rank-2';
+      if (index === 2) return 'rank-3';
+      return '';
+    },
+
+    // ===== LOGOUT =====
+    handleLogout() {
       const authStore = useAuthStore();
       authStore.logout();
-      window.location.href = '/';
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('user_data');
+      window.location.href = 'http://localhost:3001/';
     }
   }
 };
 </script>
 
 <style scoped>
-/* STYLE SAMA SEPERTI SEBELUMNYA */
 * {
   margin: 0;
   padding: 0;
@@ -191,6 +471,7 @@ export default {
   background: #f0f2f5;
 }
 
+/* ===== SIDEBAR ===== */
 .sidebar {
   width: 250px;
   background: #1a1c29;
@@ -249,7 +530,7 @@ export default {
 }
 
 .menu-item:hover {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: white;
 }
 
@@ -267,7 +548,7 @@ export default {
   align-items: center;
   gap: 12px;
   padding-top: 20px;
-  border-top: 1px solid rgba(255,255,255,0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .avatar {
@@ -280,6 +561,7 @@ export default {
   font-weight: 500;
 }
 
+/* ===== MAIN CONTENT ===== */
 .content {
   margin-left: 250px;
   flex: 1;
@@ -298,6 +580,7 @@ h1 {
   margin-bottom: 30px;
 }
 
+/* ===== HOME TAB ===== */
 .btn-create {
   padding: 14px 40px;
   background: #6c5ce7;
@@ -322,7 +605,7 @@ h1 {
   background: white;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .info-card h3 {
@@ -351,6 +634,7 @@ h1 {
   color: #94a3b8;
 }
 
+/* ===== LIBRARY TAB ===== */
 .library-tab h1 {
   margin-bottom: 20px;
 }
@@ -392,7 +676,7 @@ h1 {
 
 .quiz-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 20px;
 }
 
@@ -400,13 +684,13 @@ h1 {
   background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   transition: transform 0.3s;
 }
 
 .quiz-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
 .quiz-header {
@@ -447,6 +731,11 @@ h1 {
   margin: 4px 0;
 }
 
+.private-hint {
+  color: #f59e0b;
+  font-style: italic;
+}
+
 .btn-copy {
   background: none;
   border: none;
@@ -470,7 +759,6 @@ h1 {
 }
 
 .quiz-actions button {
-  flex: 1;
   padding: 6px 12px;
   border: none;
   border-radius: 6px;
@@ -481,13 +769,31 @@ h1 {
   transition: all 0.3s;
 }
 
-.btn-toggle {
-  background: #f0edff;
-  color: #6c5ce7;
+.btn-view {
+  background: #e0e7ff;
+  color: #4338ca;
 }
 
-.btn-toggle:hover {
-  background: #e0dbff;
+.btn-view:hover {
+  background: #c7d2fe;
+}
+
+.btn-publish-action {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.btn-publish-action:hover {
+  background: #a7f3d0;
+}
+
+.btn-private {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.btn-private:hover {
+  background: #fde68a;
 }
 
 .btn-delete {
@@ -499,20 +805,321 @@ h1 {
   background: #fecaca;
 }
 
-.loading {
+/* ===== DETAIL MODAL ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-detail {
+  background: white;
+  width: 90%;
+  max-width: 750px;
+  border-radius: 16px;
+  padding: 28px 32px 24px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.35s ease-out;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: #1e293b;
+}
+
+.modal-header {
+  margin-bottom: 16px;
+  padding-right: 30px;
+}
+
+.modal-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.modal-subject {
+  font-size: 14px;
+  color: #6c5ce7;
+  font-weight: 500;
+}
+
+.quiz-info-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.info-label {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.info-value.code {
+  color: #6c5ce7;
+  font-family: monospace;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+
+.status-badge {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-badge.publish {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.private {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ===== STATS ROW ===== */
+.stats-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.stat-box {
+  flex: 1;
+  min-width: 80px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
   text-align: center;
-  padding: 60px;
+}
+
+.stat-number {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #6c5ce7;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* ===== SECTION TITLE ===== */
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 16px 0 12px 0;
+}
+
+/* ===== NILAI TABLE ===== */
+.nilai-table {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.table-header {
+  display: flex;
+  background: #f8fafc;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.2s;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.table-row:hover {
+  background: #f8fafc;
+}
+
+.table-row.row-top {
+  background: #f0fdf4;
+}
+
+.table-row.row-top:hover {
+  background: #dcfce7;
+}
+
+.col-rank { flex: 0.5; min-width: 35px; text-align: center; }
+.col-name { flex: 2; min-width: 130px; display: flex; align-items: center; gap: 8px; }
+.col-correct { flex: 0.8; min-width: 55px; text-align: center; }
+.col-total { flex: 0.8; min-width: 55px; text-align: center; }
+.col-score { flex: 1; min-width: 70px; text-align: center; }
+.col-status { flex: 1; min-width: 80px; text-align: center; }
+
+.rank-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.rank-number.rank-1 {
+  background: #fbbf24;
+  color: #78350f;
+}
+
+.rank-number.rank-2 {
+  background: #94a3b8;
+  color: #1e293b;
+}
+
+.rank-number.rank-3 {
+  background: #d97706;
+  color: #fef3c7;
+}
+
+.student-avatar {
+  font-size: 18px;
+}
+
+.score-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 45px;
+}
+
+.score-very-good {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.score-good {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.score-medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.score-bad {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.status-badge-small {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-badge-small.lulus {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge-small.gagal {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* ===== LOADING ===== */
+.loading-state {
+  text-align: center;
+  padding: 30px;
   color: #94a3b8;
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
+.spinner-small {
+  width: 30px;
+  height: 30px;
   border: 3px solid #f1f5f9;
   border-top: 3px solid #6c5ce7;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin: 0 auto 12px;
+  margin: 0 auto 10px;
 }
 
 @keyframes spin {
@@ -520,20 +1127,41 @@ h1 {
   100% { transform: rotate(360deg); }
 }
 
-.empty-state {
+.empty-nilai {
   text-align: center;
-  padding: 60px;
-  background: white;
-  border-radius: 12px;
+  padding: 30px;
   color: #94a3b8;
+  background: #f8fafc;
+  border-radius: 10px;
 }
 
-.empty-state .hint {
-  font-size: 13px;
-  color: #cbd5e1;
-  margin-top: 4px;
+/* ===== MODAL FOOTER ===== */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
 }
 
+.btn-close-modal {
+  padding: 8px 28px;
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-close-modal:hover {
+  background: #5a4bd1;
+}
+
+/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .sidebar {
     width: 70px;
@@ -555,6 +1183,39 @@ h1 {
   
   .quiz-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .modal-detail {
+    padding: 20px 16px 16px;
+  }
+  
+  .quiz-info-detail {
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 8px;
+  }
+  
+  .table-header, .table-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .col-rank, .col-name, .col-correct, .col-total, .col-score, .col-status {
+    flex: 1;
+    min-width: 60px;
+  }
+  
+  .stats-row {
+    flex-wrap: wrap;
+  }
+  
+  .stat-box {
+    flex: 1;
+    min-width: 60px;
+    padding: 8px;
+  }
+  
+  .stat-number {
+    font-size: 18px;
   }
 }
 </style>

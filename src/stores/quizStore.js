@@ -14,7 +14,8 @@ export const useQuizStore = defineStore('quiz', {
     timeRemaining: 0,
     syncMode: true,
     teacherQuizzes: [],
-    studentQuizzes: []
+    studentQuizzes: [],
+    quizResults: []
   }),
 
   getters: {
@@ -70,7 +71,7 @@ export const useQuizStore = defineStore('quiz', {
           title: quizData.title,
           subject: quizData.subject,
           cover_image: quizData.cover_image || null,
-          visibility: 'private',
+          visibility: quizData.visibility || 'private',
           total_time: quizData.total_time || 10,
           description: quizData.description || '',
           questions: quizData.questions.map(q => ({
@@ -87,8 +88,26 @@ export const useQuizStore = defineStore('quiz', {
         console.log('✅ Quiz created in BACKEND:', response);
         
         if (response.success) {
-          this.teacherQuizzes.unshift(response.data);
-          return { success: true, data: response.data };
+          const quiz = response.data;
+          this.teacherQuizzes.unshift(quiz);
+          
+          if (quiz.visibility === 'publish') {
+            this.studentQuizzes.push({
+              id: quiz.id,
+              title: quiz.title,
+              subject: quiz.subject,
+              total_questions: quiz.questions?.length || 0,
+              emoji: quiz.emoji || '📝',
+              cover_image: quiz.cover_image || null,
+              description: quiz.description || '',
+              duration: quiz.total_time || 10,
+              join_code: quiz.join_code,
+              visibility: quiz.visibility,
+              questions: quiz.questions || []
+            });
+          }
+          
+          return { success: true, data: quiz };
         }
         return { success: false, message: response.message || 'Gagal membuat kuis' };
       } catch (error) {
@@ -113,6 +132,7 @@ export const useQuizStore = defineStore('quiz', {
         if (response.success) {
           this.teacherQuizzes = this.teacherQuizzes.filter(q => q.id !== id);
           this.studentQuizzes = this.studentQuizzes.filter(q => q.id !== id);
+          this.quizResults = this.quizResults.filter(r => r.quiz_id !== id);
           return { success: true, data: response.data };
         }
         return { success: false, message: response.message || 'Gagal menghapus kuis' };
@@ -136,19 +156,37 @@ export const useQuizStore = defineStore('quiz', {
         console.log('✅ Visibility toggled in BACKEND:', response);
         
         if (response.success) {
+          const visibility = response.data.visibility;
+          const joinCode = response.data.join_code;
+          
           const index = this.teacherQuizzes.findIndex(q => q.id === id);
           if (index >= 0) {
-            this.teacherQuizzes[index].visibility = response.data.visibility;
+            this.teacherQuizzes[index].visibility = visibility;
+            this.teacherQuizzes[index].join_code = joinCode;
           }
           
-          if (response.data.visibility === 'private') {
+          if (visibility === 'private') {
             this.studentQuizzes = this.studentQuizzes.filter(q => q.id !== id);
+            console.log('🔒 Quiz removed from student quizzes');
           } else {
             const quiz = this.teacherQuizzes.find(q => q.id === id);
             if (quiz) {
               const exists = this.studentQuizzes.some(q => q.id === id);
               if (!exists) {
-                this.studentQuizzes.push(quiz);
+                this.studentQuizzes.push({
+                  id: quiz.id,
+                  title: quiz.title,
+                  subject: quiz.subject,
+                  total_questions: quiz.questions?.length || 0,
+                  emoji: quiz.emoji || '📝',
+                  cover_image: quiz.cover_image || null,
+                  description: quiz.description || '',
+                  duration: quiz.total_time || 10,
+                  join_code: joinCode,
+                  visibility: 'publish',
+                  questions: quiz.questions || []
+                });
+                console.log('✅ Quiz added to student quizzes with join code:', joinCode);
               }
             }
           }
@@ -199,6 +237,32 @@ export const useQuizStore = defineStore('quiz', {
       } catch (error) {
         console.error('Publish quiz error:', error);
         this.error = error.response?.data?.message || error.message || 'Gagal mempublish kuis';
+        return { success: false, message: this.error };
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // ===== TEACHER: FETCH QUIZ RESULTS (NILAI SISWA) =====
+    async fetchQuizResults(quizId) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        console.log('📊 Fetching results for quiz:', quizId);
+        const response = await quizApi.getQuizResults(quizId);
+        console.log('✅ Results fetched:', response);
+        
+        if (response.success) {
+          // 🔥 URUTKAN DARI NILAI TERTINGGI KE TERENDAH
+          const sortedData = response.data.sort((a, b) => b.score - a.score);
+          this.quizResults = sortedData;
+          return { success: true, data: sortedData };
+        }
+        return { success: false, message: response.message || 'Gagal mengambil nilai' };
+      } catch (error) {
+        console.error('Fetch results error:', error);
+        this.error = error.response?.data?.message || error.message || 'Gagal mengambil nilai';
         return { success: false, message: this.error };
       } finally {
         this.loading = false;
