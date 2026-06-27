@@ -1,12 +1,17 @@
 <template>
   <div id="app">
-    <router-view />
+    <router-view @start-quiz="handleStartQuiz" />
   </div>
 </template>
 
 <script>
 export default {
   name: 'App',
+  methods: {
+    handleStartQuiz(quizId) {
+      this.$router.push(`/quiz/${quizId}`);
+    }
+  },
   mounted() {
     console.log('🚀 App mounted - ZONEQUIZZZ');
   }

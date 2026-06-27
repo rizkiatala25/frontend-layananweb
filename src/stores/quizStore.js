@@ -12,7 +12,7 @@ export const useQuizStore = defineStore('quiz', {
     error: null,
     isQuizActive: false,
     timeRemaining: 0,
-    syncMode: true, // 🔥 DEFAULT TRUE - LANGSUNG KE BACKEND
+    syncMode: true,
     teacherQuizzes: [],
     studentQuizzes: []
   }),
@@ -66,12 +66,11 @@ export const useQuizStore = defineStore('quiz', {
       try {
         console.log('📤 Creating quiz to BACKEND...', quizData);
         
-        // 🔥 FORMAT DATA UNTUK BACKEND
         const formattedData = {
           title: quizData.title,
           subject: quizData.subject,
           cover_image: quizData.cover_image || null,
-          visibility: 'private', // Default private
+          visibility: 'private',
           total_time: quizData.total_time || 10,
           description: quizData.description || '',
           questions: quizData.questions.map(q => ({
@@ -142,7 +141,6 @@ export const useQuizStore = defineStore('quiz', {
             this.teacherQuizzes[index].visibility = response.data.visibility;
           }
           
-          // 🔥 UPDATE STUDENT QUIZZES
           if (response.data.visibility === 'private') {
             this.studentQuizzes = this.studentQuizzes.filter(q => q.id !== id);
           } else {
@@ -178,14 +176,12 @@ export const useQuizStore = defineStore('quiz', {
         console.log('✅ Quiz published:', response);
         
         if (response.success) {
-          // Update teacher quizzes
           const index = this.teacherQuizzes.findIndex(q => q.id === id);
           if (index >= 0) {
             this.teacherQuizzes[index].visibility = 'publish';
             this.teacherQuizzes[index].join_code = response.data.join_code;
           }
           
-          // Add to student quizzes
           const quiz = this.teacherQuizzes.find(q => q.id === id);
           if (quiz) {
             const exists = this.studentQuizzes.some(q => q.id === id);
@@ -334,6 +330,21 @@ export const useQuizStore = defineStore('quiz', {
       } finally {
         this.loading = false;
       }
+    },
+
+    // ===== STUDENT: CLEAR ALL ACTIVITY =====
+    clearAllActivity() {
+      this.results = null;
+      localStorage.removeItem('quiz_results');
+      console.log('🗑️ All activity cleared');
+    },
+
+    // ===== STUDENT: DELETE SINGLE ACTIVITY =====
+    deleteActivity(quizId) {
+      const results = JSON.parse(localStorage.getItem('quiz_results') || '{}');
+      delete results[quizId];
+      localStorage.setItem('quiz_results', JSON.stringify(results));
+      console.log('🗑️ Activity deleted for quiz:', quizId);
     },
 
     // ===== NAVIGATION =====

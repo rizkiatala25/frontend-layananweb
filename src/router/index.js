@@ -28,19 +28,64 @@ const routes = [
   { path: '/register/guru', name: 'register-guru', component: RegisterGuru },
 
   // ===== DASHBOARD ROUTES =====
-  { path: '/dashboard/siswa', name: 'dashboard-siswa', component: DashboardSiswa, meta: { requiresAuth: true, role: 'siswa' } },
-  { path: '/dashboard/guru', name: 'dashboard-guru', component: DashboardGuru, meta: { requiresAuth: true, role: 'guru' } },
+  { 
+    path: '/dashboard/siswa', 
+    name: 'dashboard-siswa', 
+    component: DashboardSiswa, 
+    meta: { requiresAuth: true, role: 'siswa' } 
+  },
+  { 
+    path: '/dashboard/guru', 
+    name: 'dashboard-guru', 
+    component: DashboardGuru, 
+    meta: { requiresAuth: true, role: 'guru' } 
+  },
 
   // ===== QUIZ ROUTES (GURU) =====
-  { path: '/create-quiz', name: 'create-quiz', component: CreateQuiz, meta: { requiresAuth: true, role: 'guru' } },
-  { path: '/quiz-preview/:id?', name: 'quiz-preview', component: QuizPreview, meta: { requiresAuth: true, role: 'guru' } },
-  { path: '/kelola-soal', name: 'kelola-soal', component: KelolaSoal, meta: { requiresAuth: true, role: 'guru' } },
-  { path: '/lihat-nilai', name: 'lihat-nilai', component: LihatNilai, meta: { requiresAuth: true, role: 'guru' } },
+  { 
+    path: '/create-quiz', 
+    name: 'create-quiz', 
+    component: CreateQuiz, 
+    meta: { requiresAuth: true, role: 'guru' } 
+  },
+  { 
+    path: '/quiz-preview/:id?', 
+    name: 'quiz-preview', 
+    component: QuizPreview, 
+    meta: { requiresAuth: true, role: 'guru' } 
+  },
+  { 
+    path: '/kelola-soal', 
+    name: 'kelola-soal', 
+    component: KelolaSoal, 
+    meta: { requiresAuth: true, role: 'guru' } 
+  },
+  { 
+    path: '/lihat-nilai', 
+    name: 'lihat-nilai', 
+    component: LihatNilai, 
+    meta: { requiresAuth: true, role: 'guru' } 
+  },
 
   // ===== QUIZ ROUTES (SISWA) =====
-  { path: '/quiz-play/:id', name: 'quiz-play', component: QuizPlay, meta: { requiresAuth: true, role: 'siswa' } },
-  { path: '/quiz-result/:id', name: 'quiz-result', component: QuizResult, meta: { requiresAuth: true, role: 'siswa' } },
-  { path: '/quiz/:id', name: 'quiz', component: Quiz, meta: { requiresAuth: true, role: 'siswa' } }
+  { 
+    path: '/quiz-play/:id', 
+    name: 'quiz-play', 
+    component: QuizPlay, 
+    meta: { requiresAuth: true, role: 'siswa' } 
+  },
+  { 
+    path: '/quiz-result/:id', 
+    name: 'quiz-result', 
+    component: QuizResult, 
+    meta: { requiresAuth: true, role: 'siswa' } 
+  },
+  { 
+    path: '/quiz/:id', 
+    name: 'quiz', 
+    component: Quiz, 
+    meta: { requiresAuth: true, role: 'siswa' } 
+  }
 ];
 
 const router = createRouter({
