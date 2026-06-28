@@ -254,7 +254,6 @@ export const useQuizStore = defineStore('quiz', {
         console.log('✅ Results fetched:', response);
         
         if (response.success) {
-          // 🔥 URUTKAN DARI NILAI TERTINGGI KE TERENDAH
           const sortedData = response.data.sort((a, b) => b.score - a.score);
           this.quizResults = sortedData;
           return { success: true, data: sortedData };
@@ -287,17 +286,37 @@ export const useQuizStore = defineStore('quiz', {
       }
     },
 
-    // ===== STUDENT: GET QUIZ DETAIL =====
+    // ===== STUDENT: GET QUIZ DETAIL (DENGAN KONVERSI DATA) =====
     async fetchQuizDetail(id) {
       this.loading = true;
       this.error = null;
       
       try {
         const response = await quizApi.getQuizDetail(id);
-        this.currentQuiz = response.data;
-        this.currentQuestionIndex = 0;
-        this.answers = [];
-        return { success: true, data: this.currentQuiz };
+        console.log('📥 Quiz detail response:', response);
+        
+        if (response.success) {
+          const data = response.data;
+          
+          // 🔥 PASTIKAN DATA FORMATNYA BENAR
+          if (data.questions) {
+            data.questions = data.questions.map(q => ({
+              id: q.id || Date.now(),
+              question: q.question || 'No question',
+              options: Array.isArray(q.options) ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
+              question_image: q.question_image || null,
+              options_images: Array.isArray(q.options_images) ? q.options_images : [],
+              correct_index: q.correct_index !== undefined ? q.correct_index : 0,
+              points: q.points || 1
+            }));
+          }
+          
+          this.currentQuiz = data;
+          this.currentQuestionIndex = 0;
+          this.answers = [];
+          return { success: true, data: this.currentQuiz };
+        }
+        return { success: false, message: response.message || 'Gagal mengambil detail kuis' };
       } catch (error) {
         console.error('Fetch quiz detail error:', error);
         this.error = error.response?.data?.message || error.message || 'Gagal mengambil detail kuis';
@@ -353,7 +372,7 @@ export const useQuizStore = defineStore('quiz', {
       }
     },
 
-    // ===== STUDENT: SUBMIT ANSWER =====
+    // ===== STUDENT: SUBMIT SINGLE ANSWER =====
     async submitAnswer(quizId, questionId, answer) {
       try {
         const response = await quizApi.submitAnswer(quizId, {
@@ -374,6 +393,31 @@ export const useQuizStore = defineStore('quiz', {
           success: false, 
           message: error.response?.data?.message || error.message || 'Gagal mengirim jawaban' 
         };
+      }
+    },
+
+    // ===== STUDENT: SUBMIT QUIZ (SEMUA JAWABAN) =====
+    async submitQuiz(quizId, answers) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        console.log('📤 Submitting quiz:', quizId, answers);
+        const response = await quizApi.submitAnswer(quizId, { answers });
+        console.log('✅ Submit response:', response);
+        
+        if (response.success) {
+          this.results = response.data;
+          this.isQuizActive = false;
+          return { success: true, data: response.data };
+        }
+        return { success: false, message: response.message || 'Gagal submit quiz' };
+      } catch (error) {
+        console.error('Submit quiz error:', error);
+        this.error = error.response?.data?.message || error.message || 'Gagal submit quiz';
+        return { success: false, message: this.error };
+      } finally {
+        this.loading = false;
       }
     },
 

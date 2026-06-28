@@ -43,7 +43,7 @@
         
         <h2 class="question-text">{{ currentQuestion?.question || 'Loading...' }}</h2>
         
-        <!-- Options -->
+        <!-- 🔥 OPTIONS - PASTIKAN SINKRON -->
         <div class="options-grid">
           <button 
             v-for="(option, index) in currentQuestion?.options || []" 
@@ -103,7 +103,7 @@
       </div>
     </footer>
 
-    <!-- 🔥 POPUP QUIZ END -->
+    <!-- POPUP QUIZ END -->
     <div v-if="showQuizEndPopup" class="quiz-end-overlay">
       <div class="quiz-end-card">
         <div class="quiz-end-icon">🎉</div>
@@ -123,16 +123,14 @@
       </div>
     </div>
 
-    <!-- RESULT MODAL (TAMPILAN HASIL) -->
+    <!-- RESULT MODAL -->
     <div v-if="showResultModal" class="result-overlay" @click.self="closeResult">
       <div class="result-card">
-        <!-- Header -->
         <div class="result-header">
           <h1 class="result-congrats">🎉 Congratulation {{ studentName }}</h1>
           <p class="result-sub">Good job</p>
         </div>
 
-        <!-- Accuracy -->
         <div class="result-accuracy">
           <h3 class="result-section-title">Let's check your statistic</h3>
           <div class="accuracy-circle">
@@ -141,7 +139,6 @@
           <p class="accuracy-label">Accuracy</p>
         </div>
 
-        <!-- Performance -->
         <div class="result-performance">
           <h4 class="performance-title">Performance Quiz</h4>
           <div class="performance-item">
@@ -158,7 +155,6 @@
           </div>
         </div>
 
-        <!-- Review Questions -->
         <div class="result-review">
           <h4 class="review-title">Review Question</h4>
           <p class="review-sub">Your results are ready.</p>
@@ -189,7 +185,6 @@
           </div>
         </div>
 
-        <!-- Button -->
         <div class="result-actions">
           <button class="btn-result-done" @click="closeResult">Done</button>
         </div>
@@ -230,10 +225,9 @@ export default {
       timeUp: false,
       isTeacherQuiz: false,
       totalDuration: 0,
-      studentName: 'Akmal',
+      studentName: 'Student',
       reviewAnswers: [],
       
-      // 🔥 QUIZ END POPUP
       showQuizEndPopup: false,
       countdown: 10,
       countdownInterval: null
@@ -266,7 +260,7 @@ export default {
     this.startTimer();
     
     const authStore = useAuthStore();
-    this.studentName = authStore.user?.full_name || localStorage.getItem('user_name') || 'Akmal';
+    this.studentName = authStore.user?.full_name || localStorage.getItem('user_name') || 'Student';
   },
   beforeUnmount() {
     this.stopTimer();
@@ -276,29 +270,18 @@ export default {
     async loadQuiz() {
       try {
         const quizId = this.quizId;
+        console.log('📌 Loading quiz ID:', quizId);
         
+        // CEK LOCALSTORAGE DULU
         const savedQuestions = localStorage.getItem('current_quiz_questions');
         const savedTitle = localStorage.getItem('current_quiz_title') || 'Quiz';
         const savedDuration = parseInt(localStorage.getItem('current_quiz_duration')) || 60;
-        
-        const publishedQuizzes = JSON.parse(localStorage.getItem('published_quizzes') || '[]');
-        const foundQuiz = publishedQuizzes.find(q => q.id === Number(quizId));
-        
-        if (foundQuiz) {
-          this.isTeacherQuiz = true;
-          this.totalDuration = foundQuiz.total_time || 10;
-          const totalQuestions = foundQuiz.questions?.length || 5;
-          this.timeRemaining = Math.floor((foundQuiz.total_time * 60) / totalQuestions);
-          if (this.timeRemaining < 10) this.timeRemaining = 10;
-        } else {
-          this.isTeacherQuiz = false;
-          this.timeRemaining = 60;
-        }
         
         if (savedQuestions) {
           try {
             const questions = JSON.parse(savedQuestions);
             if (questions && questions.length > 0) {
+              console.log('📚 Loaded from localStorage:', questions);
               this.quizTitle = savedTitle;
               this.questions = questions.map(q => ({
                 id: q.id || Date.now(),
@@ -310,6 +293,9 @@ export default {
                 points: q.points || 1
               }));
               this.answersMap = {};
+              this.timeRemaining = savedDuration;
+              console.log('✅ Questions loaded from localStorage:', this.questions.length);
+              console.log('📝 First question options:', this.questions[0]?.options);
               return;
             }
           } catch (e) {
@@ -317,28 +303,35 @@ export default {
           }
         }
         
+        // AMBIL DARI BACKEND
         const quizStore = useQuizStore();
         const result = await quizStore.fetchQuizDetail(quizId);
+        console.log('📥 Result from backend:', result);
         
         if (result.success && result.data) {
           const data = result.data;
           this.quizTitle = data.title || 'Quiz';
+          this.timeRemaining = data.duration || 60;
           
           if (data.questions && data.questions.length > 0) {
             this.questions = data.questions.map(q => ({
               id: q.id || Date.now(),
               question: q.question || 'No question',
-              options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+              options: Array.isArray(q.options) ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
               question_image: q.question_image || null,
-              options_images: q.options_images || [],
+              options_images: Array.isArray(q.options_images) ? q.options_images : [],
               correct_index: q.correct_index !== undefined ? q.correct_index : 0,
               points: q.points || 1
             }));
             this.answersMap = {};
+            console.log('✅ Questions loaded from backend:', this.questions.length);
+            console.log('📝 First question options:', this.questions[0]?.options);
             return;
           }
         }
         
+        // FALLBACK MOCK DATA
+        console.log('⚠️ No data found, using mock data');
         this.loadMockData();
         
       } catch (error) {
@@ -369,15 +362,6 @@ export default {
           options_images: [],
           correct_index: 1,
           points: 1
-        },
-        {
-          id: 3,
-          question: 'Apa ibukota Indonesia?',
-          options: ['Jakarta', 'Bandung', 'Surabaya', 'Medan'],
-          question_image: null,
-          options_images: [],
-          correct_index: 0,
-          points: 1
         }
       ];
       this.answersMap = {};
@@ -405,22 +389,11 @@ export default {
     },
 
     autoNextQuestion() {
-      if (this.selectedAnswer === null && this.answersMap[this.currentIndex] === undefined) {
-        // Skip question
-      }
-      
       this.timeUp = false;
       this.selectedAnswer = null;
       this.showResult = false;
       this.correctAnswerIndex = null;
-      
-      const totalQuestions = this.questions.length;
-      if (this.isTeacherQuiz) {
-        this.timeRemaining = Math.floor((this.totalDuration * 60) / totalQuestions);
-        if (this.timeRemaining < 10) this.timeRemaining = 10;
-      } else {
-        this.timeRemaining = 60;
-      }
+      this.timeRemaining = 60;
       
       if (this.isLastQuestion) {
         this.submitAllAnswers();
@@ -445,15 +418,7 @@ export default {
         this.correctAnswerIndex = null;
         this.timeUp = false;
         this.currentIndex++;
-        
-        this.stopTimer();
-        const totalQuestions = this.questions.length;
-        if (this.isTeacherQuiz) {
-          this.timeRemaining = Math.floor((this.totalDuration * 60) / totalQuestions);
-          if (this.timeRemaining < 10) this.timeRemaining = 10;
-        } else {
-          this.timeRemaining = 60;
-        }
+        this.timeRemaining = 60;
         this.startTimer();
       }
     },
@@ -466,15 +431,7 @@ export default {
         this.correctAnswerIndex = null;
         this.timeUp = false;
         this.currentIndex--;
-        
-        this.stopTimer();
-        const totalQuestions = this.questions.length;
-        if (this.isTeacherQuiz) {
-          this.timeRemaining = Math.floor((this.totalDuration * 60) / totalQuestions);
-          if (this.timeRemaining < 10) this.timeRemaining = 10;
-        } else {
-          this.timeRemaining = 60;
-        }
+        this.timeRemaining = 60;
         this.startTimer();
       }
     },
@@ -491,6 +448,7 @@ export default {
       }
     },
 
+    // SUBMIT ALL ANSWERS
     async submitAllAnswers() {
       if (this.answeredCount < this.questions.length) {
         alert(`⚠️ Anda belum menjawab semua soal! (${this.answeredCount}/${this.questions.length})`);
@@ -504,6 +462,8 @@ export default {
         const answerDetails = [];
         const reviewData = [];
 
+        const formattedAnswers = [];
+
         for (let i = 0; i < this.questions.length; i++) {
           const question = this.questions[i];
           const selected = this.answersMap[i];
@@ -511,11 +471,9 @@ export default {
           
           if (isCorrect) correct++;
           
-          answerDetails.push({
+          formattedAnswers.push({
             question_id: question.id,
-            selected: selected,
-            correct: question.correct_index,
-            is_correct: isCorrect
+            selected: selected
           });
 
           reviewData.push({
@@ -533,64 +491,73 @@ export default {
         this.scorePercentage = score;
         this.reviewAnswers = reviewData;
 
-        // Simpan hasil
-        const studentName = this.studentName;
-        const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
-        const quizId = this.quizId;
+        // KIRIM KE BACKEND
+        const quizStore = useQuizStore();
+        const result = await quizStore.submitQuiz(this.quizId, formattedAnswers);
 
-        if (!quizResults[quizId]) {
-          quizResults[quizId] = [];
-        }
+        console.log('📤 Submit result:', result);
 
-        const formattedAnswers = this.questions.map((q, index) => {
-          const options = q.options || [];
-          const correctIndex = q.correct_index !== undefined ? q.correct_index : 0;
-          const selectedIndex = this.answersMap[index];
-          
-          return {
-            question: q.question || `Soal ${index + 1}`,
-            question_image: q.question_image || null,
-            options: options,
-            options_images: q.options_images || [],
-            correct_answer: options[correctIndex] || 'Correct Answer',
-            user_answer: options[selectedIndex] !== undefined ? options[selectedIndex] : 'Tidak Dijawab'
+        if (result.success) {
+          // Simpan ke localStorage untuk history
+          const studentName = this.studentName;
+          const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
+          const quizId = this.quizId;
+
+          if (!quizResults[quizId]) {
+            quizResults[quizId] = [];
+          }
+
+          const formattedAnswersForStorage = this.questions.map((q, index) => {
+            const options = q.options || [];
+            const correctIndex = q.correct_index !== undefined ? q.correct_index : 0;
+            const selectedIndex = this.answersMap[index];
+            
+            return {
+              question: q.question || `Soal ${index + 1}`,
+              question_image: q.question_image || null,
+              options: options,
+              options_images: q.options_images || [],
+              correct_answer: options[correctIndex] || 'Correct Answer',
+              user_answer: options[selectedIndex] !== undefined ? options[selectedIndex] : 'Tidak Dijawab'
+            };
+          });
+
+          quizResults[quizId].push({
+            studentName: studentName,
+            score: score,
+            correct: correct,
+            total: totalQuestions,
+            date: new Date().toLocaleDateString('id-ID', { 
+              day: 'numeric', 
+              month: 'long', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            answers: formattedAnswersForStorage
+          });
+
+          localStorage.setItem('quiz_results', JSON.stringify(quizResults));
+
+          const quizResult = {
+            title: this.quizTitle,
+            totalQuestions: totalQuestions,
+            score: score,
+            correct: correct,
+            emoji: '📝',
+            cover_image: localStorage.getItem('current_quiz_cover') || null,
+            subject: localStorage.getItem('current_quiz_subject') || 'General'
           };
-        });
+          localStorage.setItem('quiz_result', JSON.stringify(quizResult));
 
-        quizResults[quizId].push({
-          studentName: studentName,
-          score: score,
-          correct: correct,
-          total: totalQuestions,
-          date: new Date().toLocaleDateString('id-ID', { 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          answers: formattedAnswers
-        });
-
-        localStorage.setItem('quiz_results', JSON.stringify(quizResults));
-
-        const quizResult = {
-          title: this.quizTitle,
-          totalQuestions: totalQuestions,
-          score: score,
-          correct: correct,
-          emoji: '📝',
-          cover_image: localStorage.getItem('current_quiz_cover') || null,
-          subject: localStorage.getItem('current_quiz_subject') || 'General'
-        };
-        localStorage.setItem('quiz_result', JSON.stringify(quizResult));
-
-        this.stopTimer();
-        
-        // 🔥 TAMPILKAN POPUP QUIZ END
-        this.showQuizEndPopup = true;
-        this.startCountdown();
-
+          this.stopTimer();
+          
+          // TAMPILKAN POPUP QUIZ END
+          this.showQuizEndPopup = true;
+          this.startCountdown();
+        } else {
+          alert('❌ Gagal submit quiz: ' + (result.message || 'Terjadi kesalahan'));
+        }
       } catch (error) {
         console.error('Submit error:', error);
         alert('❌ Gagal submit quiz. Silakan coba lagi.');
@@ -599,7 +566,6 @@ export default {
       }
     },
 
-    // 🔥 COUNTDOWN UNTUK QUIZ END POPUP
     startCountdown() {
       this.countdown = 10;
       this.countdownInterval = setInterval(() => {
@@ -607,7 +573,7 @@ export default {
         if (this.countdown <= 0) {
           this.stopCountdown();
           this.showQuizEndPopup = false;
-          // 🔥 TAMPILKAN HASIL
+          // LANGSUNG TAMPILKAN HASIL
           this.showResultModal = true;
         }
       }, 1000);
@@ -620,27 +586,18 @@ export default {
       }
     },
 
+    // CLOSE RESULT - REDIRECT KE DASHBOARD
     closeResult() {
       this.showResultModal = false;
       
-      const totalQuestions = this.questions.length;
-      const score = this.scorePercentage;
-      
-      const answerList = [];
-      for (let i = 0; i < this.questions.length; i++) {
-        const question = this.questions[i];
-        answerList.push({
-          selected: this.answersMap[i],
-          correct: question.correct_index,
-          is_correct: this.answersMap[i] === question.correct_index
-        });
-      }
+      // 🔥 REDIRECT KE DASHBOARD SISWA
+      this.$router.push('/dashboard/siswa');
       
       this.$emit('finish', {
         correct: this.correctCount,
-        total: totalQuestions,
-        score: score,
-        answers: answerList
+        total: this.questions.length,
+        score: this.scorePercentage,
+        answers: []
       });
     }
   }
@@ -663,7 +620,6 @@ export default {
   padding: 16px 20px 20px;
 }
 
-/* ===== HEADER ===== */
 .quiz-header {
   display: flex;
   justify-content: space-between;
@@ -758,7 +714,6 @@ export default {
   transition: width 0.3s ease;
 }
 
-/* ===== BODY ===== */
 .quiz-body {
   flex: 1;
   display: flex;
@@ -927,7 +882,6 @@ export default {
   cursor: not-allowed;
 }
 
-/* ===== FOOTER ===== */
 .quiz-footer {
   padding: 12px 0 0 0;
   border-top: 1px solid #f1f5f9;
@@ -985,7 +939,6 @@ export default {
   cursor: not-allowed;
 }
 
-/* ===== QUIZ END POPUP ===== */
 .quiz-end-overlay {
   position: fixed;
   top: 0;
@@ -1078,7 +1031,6 @@ export default {
   transition: width 1s linear;
 }
 
-/* ===== RESULT MODAL ===== */
 .result-overlay {
   position: fixed;
   top: 0;
@@ -1123,7 +1075,6 @@ export default {
   to { opacity: 1; }
 }
 
-/* Result Header */
 .result-header {
   text-align: left;
   margin-bottom: 20px;
@@ -1142,7 +1093,6 @@ export default {
   margin: 2px 0 0 0;
 }
 
-/* Accuracy */
 .result-accuracy {
   text-align: center;
   margin-bottom: 20px;
@@ -1178,7 +1128,6 @@ export default {
   color: #1e293b;
 }
 
-/* Performance */
 .result-performance {
   background: #f8fafc;
   border-radius: 12px;
@@ -1211,7 +1160,6 @@ export default {
   color: #1e293b;
 }
 
-/* Review */
 .result-review {
   margin-bottom: 20px;
 }
@@ -1278,7 +1226,6 @@ export default {
   font-weight: 500;
 }
 
-/* Result Actions */
 .result-actions {
   display: flex;
   justify-content: flex-end;
@@ -1302,7 +1249,6 @@ export default {
   transform: translateY(-2px);
 }
 
-/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .quiz-play {
     padding: 12px 14px 16px;

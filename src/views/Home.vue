@@ -6,7 +6,7 @@
         <span class="logo-text">ZONEQUIZZZ</span>
       </div>
       <div class="nav-links">
-        <a href="#" class="nav-link">Enter code</a>
+        <a href="#" class="nav-link"></a>
         <button @click="goToSignup" class="btn-signup">SignUp</button>
       </div>
     </header>
