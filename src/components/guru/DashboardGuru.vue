@@ -101,9 +101,8 @@
               </p>
             </div>
             <div class="quiz-actions">
-              <!-- 🔥 TOMBOL VIEW DETAIL -->
               <button class="btn-view" @click="openDetailModal(quiz)">
-                👁️ View
+                👁️ View Results
               </button>
               <button 
                 class="btn-publish" 
@@ -176,54 +175,131 @@
           </div>
         </div>
 
-        <!-- Daftar Nilai Siswa -->
-        <h3 class="section-title">📊 Daftar Nilai Siswa</h3>
-        
-        <div v-if="loadingNilai" class="loading-state">
-          <div class="spinner-small"></div>
-          <p>Loading data...</p>
+        <!-- 🔥 TABS: FROM DATABASE vs FROM LOCALSTORAGE -->
+        <div class="result-tabs">
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'database' }"
+            @click="activeTab = 'database'"
+          >
+            📊 Dari Database
+          </button>
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'local' }"
+            @click="activeTab = 'local'"
+          >
+            💾 Dari LocalStorage (Backup)
+          </button>
         </div>
 
-        <div v-else-if="nilaiSiswa.length === 0" class="empty-nilai">
-          <p>📭 Belum ada siswa yang mengerjakan quiz ini.</p>
-        </div>
-
-        <div v-else class="nilai-table">
-          <div class="table-header">
-            <div class="col-rank">#</div>
-            <div class="col-name">Nama Siswa</div>
-            <div class="col-correct">✅ Benar</div>
-            <div class="col-total">📝 Total</div>
-            <div class="col-score">🎯 Nilai</div>
-            <div class="col-status">Status</div>
+        <!-- Daftar Nilai Siswa - DARI DATABASE -->
+        <div v-if="activeTab === 'database'">
+          <h3 class="section-title">📊 Daftar Nilai Siswa (Database)</h3>
+          
+          <div v-if="loadingNilai" class="loading-state">
+            <div class="spinner-small"></div>
+            <p>Loading data...</p>
           </div>
 
-          <div 
-            v-for="(item, index) in sortedNilai" 
-            :key="index"
-            class="table-row"
-            :class="{ 'row-top': index < 3 }"
-          >
-            <div class="col-rank">
-              <span class="rank-number" :class="getRankClass(index)">
-                {{ index + 1 }}
-              </span>
+          <div v-else-if="nilaiSiswa.length === 0" class="empty-nilai">
+            <p>📭 Belum ada siswa yang mengerjakan quiz ini.</p>
+          </div>
+
+          <div v-else class="nilai-table">
+            <div class="table-header">
+              <div class="col-rank">#</div>
+              <div class="col-name">Nama Siswa</div>
+              <div class="col-correct">✅ Benar</div>
+              <div class="col-total">📝 Total</div>
+              <div class="col-score">🎯 Nilai</div>
+              <div class="col-status">Status</div>
+              <div class="col-date">📅 Tanggal</div>
             </div>
-            <div class="col-name">
-              <span class="student-avatar">👤</span>
-              {{ item.studentName }}
+
+            <div 
+              v-for="(item, index) in sortedNilai" 
+              :key="index"
+              class="table-row"
+              :class="{ 'row-top': index < 3 }"
+            >
+              <div class="col-rank">
+                <span class="rank-number" :class="getRankClass(index)">
+                  {{ index + 1 }}
+                </span>
+              </div>
+              <div class="col-name">
+                <span class="student-avatar">👤</span>
+                {{ item.studentName }}
+              </div>
+              <div class="col-correct">{{ item.correct }}</div>
+              <div class="col-total">{{ item.total }}</div>
+              <div class="col-score">
+                <span class="score-badge" :class="getScoreClass(item.score)">
+                  {{ item.score }}%
+                </span>
+              </div>
+              <div class="col-status">
+                <span class="status-badge-small" :class="item.score >= 70 ? 'lulus' : 'gagal'">
+                  {{ item.score >= 70 ? '✅ Lulus' : '❌ Gagal' }}
+                </span>
+              </div>
+              <div class="col-date">
+                <span class="date-text">{{ item.completed_at || item.date || '-' }}</span>
+              </div>
             </div>
-            <div class="col-correct">{{ item.correct }}</div>
-            <div class="col-total">{{ item.total }}</div>
-            <div class="col-score">
-              <span class="score-badge" :class="getScoreClass(item.score)">
-                {{ item.score }}%
-              </span>
+          </div>
+        </div>
+
+        <!-- Daftar Nilai Siswa - DARI LOCALSTORAGE (BACKUP) -->
+        <div v-if="activeTab === 'local'">
+          <h3 class="section-title">💾 Backup dari LocalStorage</h3>
+          
+          <div v-if="localResults.length === 0" class="empty-nilai">
+            <p>📭 Tidak ada data backup di localStorage.</p>
+          </div>
+
+          <div v-else class="nilai-table">
+            <div class="table-header">
+              <div class="col-rank">#</div>
+              <div class="col-name">Nama Siswa</div>
+              <div class="col-correct">✅ Benar</div>
+              <div class="col-total">📝 Total</div>
+              <div class="col-score">🎯 Nilai</div>
+              <div class="col-status">Status</div>
+              <div class="col-date">📅 Tanggal</div>
             </div>
-            <div class="col-status">
-              <span class="status-badge-small" :class="item.score >= 70 ? 'lulus' : 'gagal'">
-                {{ item.score >= 70 ? '✅ Lulus' : '❌ Gagal' }}
-              </span>
+
+            <div 
+              v-for="(item, index) in sortedLocalResults" 
+              :key="index"
+              class="table-row"
+              :class="{ 'row-top': index < 3 }"
+            >
+              <div class="col-rank">
+                <span class="rank-number" :class="getRankClass(index)">
+                  {{ index + 1 }}
+                </span>
+              </div>
+              <div class="col-name">
+                <span class="student-avatar">👤</span>
+                {{ item.studentName }}
+              </div>
+              <div class="col-correct">{{ item.correct }}</div>
+              <div class="col-total">{{ item.total }}</div>
+              <div class="col-score">
+                <span class="score-badge" :class="getScoreClass(item.score)">
+                  {{ item.score }}%
+                </span>
+              </div>
+              <div class="col-status">
+                <span class="status-badge-small" :class="item.score >= 70 ? 'lulus' : 'gagal'">
+                  {{ item.score >= 70 ? '✅ Lulus' : '❌ Gagal' }}
+                </span>
+              </div>
+              <div class="col-date">
+                <span class="date-text">{{ item.date || '-' }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -254,7 +330,9 @@ export default {
       showDetailModal: false,
       selectedQuiz: null,
       nilaiSiswa: [],
-      selectedQuizId: null
+      selectedQuizId: null,
+      activeTab: 'database',
+      localResults: []
     };
   },
   computed: {
@@ -280,8 +358,10 @@ export default {
       );
     },
     sortedNilai() {
-      // 🔥 URUTKAN DARI NILAI TERTINGGI KE TERENDAH
       return [...this.nilaiSiswa].sort((a, b) => b.score - a.score);
+    },
+    sortedLocalResults() {
+      return [...this.localResults].sort((a, b) => b.score - a.score);
     },
     averageScore() {
       if (this.nilaiSiswa.length === 0) return 0;
@@ -332,6 +412,8 @@ export default {
       this.selectedQuizId = quiz.id;
       this.showDetailModal = true;
       this.loadingNilai = true;
+      this.activeTab = 'database';
+      this.localResults = [];
       
       try {
         const quizStore = useQuizStore();
@@ -339,7 +421,7 @@ export default {
         
         if (result.success) {
           this.nilaiSiswa = result.data || [];
-          console.log('✅ Nilai loaded:', this.nilaiSiswa.length);
+          console.log('✅ Nilai loaded from database:', this.nilaiSiswa.length);
         } else {
           this.nilaiSiswa = [];
         }
@@ -349,6 +431,31 @@ export default {
       } finally {
         this.loadingNilai = false;
       }
+
+      // 🔥 LOAD DARI LOCALSTORAGE JUGA (BACKUP)
+      this.loadLocalResults(quiz.id);
+    },
+
+    // ===== LOAD LOCAL RESULTS =====
+    loadLocalResults(quizId) {
+      try {
+        const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
+        const results = quizResults[quizId] || [];
+        
+        this.localResults = results.map(item => ({
+          studentName: item.studentName || 'Unknown',
+          score: item.score || 0,
+          correct: item.correct || 0,
+          total: item.total || 0,
+          date: item.date || new Date().toLocaleDateString(),
+          completed_at: item.date || null
+        }));
+        
+        console.log('💾 Local results loaded:', this.localResults.length);
+      } catch (e) {
+        console.error('Error loading local results:', e);
+        this.localResults = [];
+      }
     },
 
     // ===== CLOSE DETAIL MODAL =====
@@ -356,6 +463,8 @@ export default {
       this.showDetailModal = false;
       this.selectedQuiz = null;
       this.nilaiSiswa = [];
+      this.localResults = [];
+      this.activeTab = 'database';
     },
 
     // ===== TOGGLE VISIBILITY =====
@@ -421,10 +530,9 @@ export default {
       });
     },
 
-    // ===== 🔥 GO TO CREATE QUIZ =====
+    // ===== GO TO CREATE QUIZ =====
     goToCreateQuiz() {
       console.log('📌 Navigating to create quiz...');
-      // 🔥 PAKAI ROUTER PUSH LANGSUNG
       this.$router.push('/create-quiz');
     },
 
@@ -920,23 +1028,6 @@ h1 {
   letter-spacing: 1px;
 }
 
-.status-badge {
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.status-badge.publish {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-badge.private {
-  background: #fef3c7;
-  color: #92400e;
-}
-
 /* ===== STATS ROW ===== */
 .stats-row {
   display: flex;
@@ -1025,6 +1116,12 @@ h1 {
 .col-total { flex: 0.8; min-width: 55px; text-align: center; }
 .col-score { flex: 1; min-width: 70px; text-align: center; }
 .col-status { flex: 1; min-width: 80px; text-align: center; }
+.col-date { flex: 1.2; min-width: 90px; text-align: center; }
+
+.date-text {
+  font-size: 11px;
+  color: #94a3b8;
+}
 
 .rank-number {
   display: inline-flex;
@@ -1103,6 +1200,36 @@ h1 {
 .status-badge-small.gagal {
   background: #fee2e2;
   color: #dc2626;
+}
+
+/* ===== RESULT TABS ===== */
+.result-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0 12px 0;
+}
+
+.tab-btn {
+  padding: 8px 20px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s;
+  color: #64748b;
+}
+
+.tab-btn:hover {
+  border-color: #cbd5e1;
+}
+
+.tab-btn.active {
+  border-color: #6c5ce7;
+  background: #f0edff;
+  color: #6c5ce7;
 }
 
 /* ===== LOADING ===== */
@@ -1199,7 +1326,7 @@ h1 {
     gap: 4px;
   }
   
-  .col-rank, .col-name, .col-correct, .col-total, .col-score, .col-status {
+  .col-rank, .col-name, .col-correct, .col-total, .col-score, .col-status, .col-date {
     flex: 1;
     min-width: 60px;
   }
@@ -1216,6 +1343,14 @@ h1 {
   
   .stat-number {
     font-size: 18px;
+  }
+
+  .result-tabs {
+    flex-direction: column;
+  }
+  
+  .tab-btn {
+    width: 100%;
   }
 }
 </style>

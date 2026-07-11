@@ -357,132 +357,126 @@ export default {
 
     // Submit semua jawaban
     async submitAllAnswers() {
-      // Cek apakah semua soal sudah dijawab
-      if (this.answeredCount < this.questions.length) {
-        alert(`⚠️ Anda belum menjawab semua soal! (${this.answeredCount}/${this.questions.length})`);
-        return;
-      }
+  // Cek semua soal sudah dijawab
+  if (this.answeredCount < this.questions.length) {
+    alert(`⚠️ Anda belum menjawab semua soal! (${this.answeredCount}/${this.questions.length})`);
+    return;
+  }
 
-      this.submitting = true;
+  this.submitting = true;
 
-      try {
-        console.log('📌 Submitting all answers:', this.answersMap);
+  try {
+    console.log('📌 Submitting all answers:', this.answersMap);
 
-        // Hitung hasil
-        let correct = 0;
-        const answerDetails = [];
+    // Hitung hasil
+    let correct = 0;
+    const answerDetails = [];
 
-        for (let i = 0; i < this.questions.length; i++) {
-          const question = this.questions[i];
-          const selected = this.answersMap[i];
-          const isCorrect = selected === question.correct_index;
-          
-          if (isCorrect) correct++;
-          
-          answerDetails.push({
-            question_id: question.id,
-            selected: selected,
-            correct: question.correct_index,
-            is_correct: isCorrect
-          });
-        }
-
-        const totalQuestions = this.questions.length;
-        const score = Math.round((correct / totalQuestions) * 100);
-
-        this.correctCount = correct;
-        this.scorePercentage = score;
-
-        // Simpan hasil ke localStorage
-        const studentName = this.authStore.user?.full_name || 
-                           localStorage.getItem('user_name') || 
-                           'Student';
-
-        const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
-        const quizId = this.quizId;
-
-        if (!quizResults[quizId]) {
-          quizResults[quizId] = [];
-        }
-
-        // Format answers untuk ditampilkan
-        const formattedAnswers = this.questions.map((q, index) => {
-          const options = q.options || [];
-          const correctIndex = q.correct_index !== undefined ? q.correct_index : 0;
-          const selectedIndex = this.answersMap[index];
-          
-          return {
-            question: q.question || `Soal ${index + 1}`,
-            question_image: q.question_image || null,
-            options: options,
-            options_images: q.options_images || [],
-            correct_answer: options[correctIndex] || 'Correct Answer',
-            user_answer: options[selectedIndex] || 'Not Answered'
-          };
-        });
-
-        quizResults[quizId].push({
-          studentName: studentName,
-          score: score,
-          correct: correct,
-          total: totalQuestions,
-          date: new Date().toLocaleDateString('id-ID', { 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          answers: formattedAnswers
-        });
-
-        localStorage.setItem('quiz_results', JSON.stringify(quizResults));
-
-        // Simpan result untuk ditampilkan
-        const quizResult = {
-          title: this.quizTitle,
-          totalQuestions: totalQuestions,
-          score: score,
-          emoji: '📝'
-        };
-        localStorage.setItem('quiz_result', JSON.stringify(quizResult));
-
-        this.stopTimer();
-        this.showResultModal = true;
-
-      } catch (error) {
-        console.error('Submit error:', error);
-        alert('❌ Gagal submit quiz. Silakan coba lagi.');
-      } finally {
-        this.submitting = false;
-      }
-    },
-
-    closeResult() {
-      this.showResultModal = false;
+    for (let i = 0; i < this.questions.length; i++) {
+      const question = this.questions[i];
+      const selected = this.answersMap[i];
+      const isCorrect = selected === question.correct_index;
       
-      // Kirim hasil ke parent
-      const totalQuestions = this.questions.length;
-      const score = this.scorePercentage;
+      if (isCorrect) correct++;
       
-      // Buat object answers untuk parent
-      const answerList = [];
-      for (let i = 0; i < this.questions.length; i++) {
-        const question = this.questions[i];
-        answerList.push({
-          selected: this.answersMap[i],
-          correct: question.correct_index,
-          is_correct: this.answersMap[i] === question.correct_index
-        });
-      }
-      
-      this.$emit('finish', {
-        correct: this.correctCount,
-        total: totalQuestions,
-        score: score,
-        answers: answerList
+      answerDetails.push({
+        question_id: question.id,
+        selected: selected,
+        correct: question.correct_index,
+        is_correct: isCorrect
       });
     }
+
+    const totalQuestions = this.questions.length;
+    const score = Math.round((correct / totalQuestions) * 100);
+
+    this.correctCount = correct;
+    this.scorePercentage = score;
+
+    // 🔥 CEK APAKAH INI QUIZ DEFAULT
+    let quizId = this.quizId;
+    const isDefaultQuiz = !quizId || quizId === 'undefined' || quizId < 1000 || quizId === 'default';
+    
+    const studentName = this.authStore.user?.full_name || 
+                       localStorage.getItem('user_name') || 
+                       'Student';
+
+    // Siapkan data untuk localStorage
+    const formattedAnswers = this.questions.map((q, index) => {
+      const options = q.options || [];
+      const correctIndex = q.correct_index !== undefined ? q.correct_index : 0;
+      const selectedIndex = this.answersMap[index];
+      
+      return {
+        question: q.question || `Soal ${index + 1}`,
+        question_image: q.question_image || null,
+        options: options,
+        options_images: q.options_images || [],
+        correct_answer: options[correctIndex] || 'Correct Answer',
+        user_answer: options[selectedIndex] !== undefined ? options[selectedIndex] : 'Not Answered'
+      };
+    });
+
+    // 🔥 SIMPAN KE LOCALSTORAGE UNTUK SEMUA KASUS
+    const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
+    const finalQuizId = quizId || 'default_' + Date.now();
+
+    if (!quizResults[finalQuizId]) {
+      quizResults[finalQuizId] = [];
+    }
+
+    quizResults[finalQuizId].push({
+      studentName: studentName,
+      score: score,
+      correct: correct,
+      total: totalQuestions,
+      date: new Date().toLocaleDateString('id-ID', { 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      answers: formattedAnswers
+    });
+
+    localStorage.setItem('quiz_results', JSON.stringify(quizResults));
+
+    // Simpan result untuk ditampilkan
+    const quizResult = {
+      title: this.quizTitle || 'Quiz',
+      totalQuestions: totalQuestions,
+      score: score,
+      correct: correct,
+      emoji: '📝'
+    };
+    localStorage.setItem('quiz_result', JSON.stringify(quizResult));
+
+    // 🔥 JIKA BUKAN QUIZ DEFAULT, KIRIM KE BACKEND
+    if (!isDefaultQuiz && quizId && !isNaN(Number(quizId))) {
+      try {
+        const answerData = answerDetails.map(a => ({
+          question_id: a.question_id,
+          selected: a.selected
+        }));
+        
+        await this.quizStore.submitQuiz(Number(quizId), answerData);
+        console.log('✅ Successfully submitted to backend');
+      } catch (backendError) {
+        console.warn('⚠️ Backend submit failed, but data saved locally:', backendError);
+      }
+    }
+
+    this.stopTimer();
+    this.showResultModal = true;
+
+  } catch (error) {
+    console.error('Submit error:', error);
+    alert('❌ Gagal submit quiz. Silakan coba lagi.');
+  } finally {
+    this.submitting = false;
+  }
+}
   }
 };
 </script>

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // 🔥 GANTI DENGAN IP BACKEND TEMAN ANDA
-const API_BASE_URL = 'http://192.168.33.103:8000';
+const API_BASE_URL = 'http://192.168.18.165:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

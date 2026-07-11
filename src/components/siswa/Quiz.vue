@@ -43,7 +43,7 @@
         
         <h2 class="question-text">{{ currentQuestion?.question || 'Loading...' }}</h2>
         
-        <!-- 🔥 OPTIONS - PASTIKAN SINKRON -->
+        <!-- OPTIONS -->
         <div class="options-grid">
           <button 
             v-for="(option, index) in currentQuestion?.options || []" 
@@ -127,7 +127,7 @@
     <div v-if="showResultModal" class="result-overlay" @click.self="closeResult">
       <div class="result-card">
         <div class="result-header">
-          <h1 class="result-congrats">🎉 Congratulation {{ studentName }}</h1>
+          <h1 class="result-congrats">🎉 Congratulations {{ studentName }}</h1>
           <p class="result-sub">Good job</p>
         </div>
 
@@ -203,7 +203,7 @@ export default {
   props: {
     quizId: {
       type: [Number, String],
-      required: true
+      required: false
     }
   },
   emits: ['finish', 'back'],
@@ -272,7 +272,10 @@ export default {
         const quizId = this.quizId;
         console.log('📌 Loading quiz ID:', quizId);
         
-        // CEK LOCALSTORAGE DULU
+        if (quizId) {
+          localStorage.setItem('current_quiz_id', String(quizId));
+        }
+        
         const savedQuestions = localStorage.getItem('current_quiz_questions');
         const savedTitle = localStorage.getItem('current_quiz_title') || 'Quiz';
         const savedDuration = parseInt(localStorage.getItem('current_quiz_duration')) || 60;
@@ -286,16 +289,15 @@ export default {
               this.questions = questions.map(q => ({
                 id: q.id || Date.now(),
                 question: q.question || 'No question',
-                options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+                options: Array.isArray(q.options) ? q.options.map(opt => typeof opt === 'string' ? opt : opt.option_text || opt) : ['Option A', 'Option B', 'Option C', 'Option D'],
                 question_image: q.question_image || null,
-                options_images: q.options_images || [],
+                options_images: Array.isArray(q.options_images) ? q.options_images : [],
                 correct_index: q.correct_index !== undefined ? q.correct_index : 0,
                 points: q.points || 1
               }));
               this.answersMap = {};
               this.timeRemaining = savedDuration;
               console.log('✅ Questions loaded from localStorage:', this.questions.length);
-              console.log('📝 First question options:', this.questions[0]?.options);
               return;
             }
           } catch (e) {
@@ -303,7 +305,6 @@ export default {
           }
         }
         
-        // AMBIL DARI BACKEND
         const quizStore = useQuizStore();
         const result = await quizStore.fetchQuizDetail(quizId);
         console.log('📥 Result from backend:', result);
@@ -314,23 +315,34 @@ export default {
           this.timeRemaining = data.duration || 60;
           
           if (data.questions && data.questions.length > 0) {
-            this.questions = data.questions.map(q => ({
-              id: q.id || Date.now(),
-              question: q.question || 'No question',
-              options: Array.isArray(q.options) ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
-              question_image: q.question_image || null,
-              options_images: Array.isArray(q.options_images) ? q.options_images : [],
-              correct_index: q.correct_index !== undefined ? q.correct_index : 0,
-              points: q.points || 1
-            }));
+            this.questions = data.questions.map(q => {
+              let options = q.options || ['Option A', 'Option B', 'Option C', 'Option D'];
+              if (Array.isArray(options) && options.length > 0 && typeof options[0] === 'object') {
+                options = options.map(opt => opt.option_text || opt.text || opt);
+              }
+              if (typeof options === 'string') {
+                try {
+                  options = JSON.parse(options);
+                } catch (e) {
+                  options = ['Option A', 'Option B', 'Option C', 'Option D'];
+                }
+              }
+              return {
+                id: q.id || Date.now(),
+                question: q.question || 'No question',
+                options: Array.isArray(options) ? options : ['Option A', 'Option B', 'Option C', 'Option D'],
+                question_image: q.question_image || null,
+                options_images: Array.isArray(q.options_images) ? q.options_images : [],
+                correct_index: q.correct_index !== undefined ? q.correct_index : 0,
+                points: q.points || 1
+              };
+            });
             this.answersMap = {};
             console.log('✅ Questions loaded from backend:', this.questions.length);
-            console.log('📝 First question options:', this.questions[0]?.options);
             return;
           }
         }
         
-        // FALLBACK MOCK DATA
         console.log('⚠️ No data found, using mock data');
         this.loadMockData();
         
@@ -448,7 +460,7 @@ export default {
       }
     },
 
-    // SUBMIT ALL ANSWERS
+    // ===== SUBMIT ALL ANSWERS - UPDATED =====
     async submitAllAnswers() {
       if (this.answeredCount < this.questions.length) {
         alert(`⚠️ Anda belum menjawab semua soal! (${this.answeredCount}/${this.questions.length})`);
@@ -458,11 +470,10 @@ export default {
       this.submitting = true;
 
       try {
+        // 🔥 HITUNG JAWABAN
         let correct = 0;
-        const answerDetails = [];
-        const reviewData = [];
-
         const formattedAnswers = [];
+        const reviewData = [];
 
         for (let i = 0; i < this.questions.length; i++) {
           const question = this.questions[i];
@@ -473,14 +484,14 @@ export default {
           
           formattedAnswers.push({
             question_id: question.id,
-            selected: selected
+            selected: selected !== undefined ? selected : 0
           });
 
           reviewData.push({
             question: question.question,
             options: question.options || [],
-            selectedIndex: selected,
-            correctIndex: question.correct_index
+            correctIndex: question.correct_index,
+            selectedIndex: selected !== undefined ? selected : -1
           });
         }
 
@@ -491,89 +502,192 @@ export default {
         this.scorePercentage = score;
         this.reviewAnswers = reviewData;
 
-        // KIRIM KE BACKEND
-        const quizStore = useQuizStore();
-        const result = await quizStore.submitQuiz(this.quizId, formattedAnswers);
+        // 🔥 CEK APAKAH INI QUIZ DEFAULT ATAU DARI GURU
+        let quizId = this.quizId;
+        
+        // 🔥 CEK APAKAH QUIZ DARI GURU (ID > 1000 ATAU ADA join_code)
+        const isTeacherQuiz = quizId && 
+                             quizId !== 'undefined' && 
+                             quizId !== 'default' &&
+                             !String(quizId).startsWith('default') &&
+                             Number(quizId) >= 1000;
 
-        console.log('📤 Submit result:', result);
+        console.log('📌 Is teacher quiz?', isTeacherQuiz);
+        console.log('📌 Quiz ID:', quizId);
 
-        if (result.success) {
-          // Simpan ke localStorage untuk history
-          const studentName = this.studentName;
-          const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
-          const quizId = this.quizId;
+        // 🔥 SELALU SIMPAN KE LOCALSTORAGE (BACKUP)
+        this.saveResultToLocalStorage(score, correct, totalQuestions);
 
-          if (!quizResults[quizId]) {
-            quizResults[quizId] = [];
+        // 🔥 JIKA QUIZ DARI GURU, KIRIM KE BACKEND
+        if (isTeacherQuiz) {
+          try {
+            const numericId = Number(quizId);
+            if (!isNaN(numericId) && numericId > 0) {
+              const quizStore = useQuizStore();
+              const result = await quizStore.submitQuiz(numericId, formattedAnswers);
+              console.log('📥 Backend submit result:', result);
+              
+              if (result.success) {
+                console.log('✅ Quiz result saved to database!');
+              } else {
+                console.warn('⚠️ Backend save failed but data saved locally:', result.message);
+              }
+            }
+          } catch (backendError) {
+            console.error('❌ Backend error:', backendError);
+            // Data sudah tersimpan di localStorage sebagai backup
           }
-
-          const formattedAnswersForStorage = this.questions.map((q, index) => {
-            const options = q.options || [];
-            const correctIndex = q.correct_index !== undefined ? q.correct_index : 0;
-            const selectedIndex = this.answersMap[index];
-            
-            return {
-              question: q.question || `Soal ${index + 1}`,
-              question_image: q.question_image || null,
-              options: options,
-              options_images: q.options_images || [],
-              correct_answer: options[correctIndex] || 'Correct Answer',
-              user_answer: options[selectedIndex] !== undefined ? options[selectedIndex] : 'Tidak Dijawab'
-            };
-          });
-
-          quizResults[quizId].push({
-            studentName: studentName,
-            score: score,
-            correct: correct,
-            total: totalQuestions,
-            date: new Date().toLocaleDateString('id-ID', { 
-              day: 'numeric', 
-              month: 'long', 
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            }),
-            answers: formattedAnswersForStorage
-          });
-
-          localStorage.setItem('quiz_results', JSON.stringify(quizResults));
-
-          const quizResult = {
-            title: this.quizTitle,
-            totalQuestions: totalQuestions,
-            score: score,
-            correct: correct,
-            emoji: '📝',
-            cover_image: localStorage.getItem('current_quiz_cover') || null,
-            subject: localStorage.getItem('current_quiz_subject') || 'General'
-          };
-          localStorage.setItem('quiz_result', JSON.stringify(quizResult));
-
-          this.stopTimer();
-          
-          // TAMPILKAN POPUP QUIZ END
-          this.showQuizEndPopup = true;
-          this.startCountdown();
         } else {
-          alert('❌ Gagal submit quiz: ' + (result.message || 'Terjadi kesalahan'));
+          console.log('📌 Quiz default, hanya simpan ke localStorage');
         }
+
+        // 🔥 TAMPILKAN POPUP END
+        this.stopTimer();
+        this.showQuizEndPopup = true;
+        this.countdown = 10;
+        this.startCountdown();
+
       } catch (error) {
-        console.error('Submit error:', error);
-        alert('❌ Gagal submit quiz. Silakan coba lagi.');
+        console.error('❌ Submit error:', error);
+        
+        // 🔥 FALLBACK: HITUNG ULANG DAN SIMPAN KE LOCALSTORAGE
+        let correct = 0;
+        const reviewData = [];
+        
+        for (let i = 0; i < this.questions.length; i++) {
+          const q = this.questions[i];
+          const selectedIndex = this.answersMap[i];
+          const isCorrect = selectedIndex === q.correct_index;
+          
+          if (isCorrect) correct++;
+          
+          reviewData.push({
+            question: q.question,
+            options: q.options || [],
+            correctIndex: q.correct_index,
+            selectedIndex: selectedIndex !== undefined ? selectedIndex : -1
+          });
+        }
+
+        const score = Math.round((correct / this.questions.length) * 100);
+        this.correctCount = correct;
+        this.scorePercentage = score;
+        this.reviewAnswers = reviewData;
+        
+        this.saveResultToLocalStorage(score, correct, this.questions.length);
+        
+        this.stopTimer();
+        this.showQuizEndPopup = true;
+        this.countdown = 10;
+        this.startCountdown();
       } finally {
         this.submitting = false;
       }
     },
 
+    // 🔥 SAVE TO LOCALSTORAGE
+    saveResultToLocalStorage(score, correct, totalQuestions) {
+      const studentName = this.studentName || localStorage.getItem('user_name') || 'Student';
+      const quizId = this.quizId || localStorage.getItem('current_quiz_id') || 'default_' + Date.now();
+
+      const quizResults = JSON.parse(localStorage.getItem('quiz_results') || '{}');
+      
+      if (!quizResults[quizId]) {
+        quizResults[quizId] = [];
+      }
+
+      const formattedAnswers = this.questions.map((q, index) => {
+        const options = q.options || [];
+        const correctIndex = q.correct_index !== undefined ? q.correct_index : 0;
+        const selectedIndex = this.answersMap[index];
+        
+        return {
+          question: q.question || `Soal ${index + 1}`,
+          question_image: q.question_image || null,
+          options: options,
+          options_images: q.options_images || [],
+          correct_answer: options[correctIndex] || 'Correct Answer',
+          user_answer: options[selectedIndex] !== undefined ? options[selectedIndex] : 'Tidak Dijawab'
+        };
+      });
+
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('id-ID', { 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      // Cek duplikasi
+      const exists = quizResults[quizId].some(item => 
+        item.studentName === studentName && 
+        item.score === score && 
+        item.date === dateStr
+      );
+
+      if (!exists) {
+        quizResults[quizId].push({
+          studentName: studentName,
+          score: score,
+          correct: correct,
+          total: totalQuestions,
+          date: dateStr,
+          answers: formattedAnswers,
+          quizTitle: this.quizTitle || localStorage.getItem('current_quiz_title') || 'Quiz',
+          quizId: quizId
+        });
+        localStorage.setItem('quiz_results', JSON.stringify(quizResults));
+      }
+
+      // Simpan result terakhir
+      const quizResult = {
+        title: this.quizTitle || localStorage.getItem('current_quiz_title') || 'Quiz',
+        totalQuestions: totalQuestions,
+        score: score,
+        correct: correct,
+        emoji: '📝',
+        cover_image: localStorage.getItem('current_quiz_cover') || null,
+        subject: localStorage.getItem('current_quiz_subject') || 'General',
+        quizId: quizId
+      };
+      localStorage.setItem('quiz_result', JSON.stringify(quizResult));
+
+      console.log('✅ Result saved to localStorage:', quizResult);
+    },
+
     startCountdown() {
       this.countdown = 10;
+      this.stopCountdown();
       this.countdownInterval = setInterval(() => {
         this.countdown--;
         if (this.countdown <= 0) {
           this.stopCountdown();
           this.showQuizEndPopup = false;
-          // LANGSUNG TAMPILKAN HASIL
+          
+          // 🔥 SETELAH COUNTDOWN SELESAI, TAMPILKAN RESULT MODAL
+          console.log('📊 Showing result modal with data:', {
+            correct: this.correctCount,
+            total: this.questions.length,
+            score: this.scorePercentage,
+            reviewAnswers: this.reviewAnswers
+          });
+          
+          // 🔥 PASTIKAN DATA SUDAH SIAP
+          if (this.reviewAnswers.length === 0) {
+            for (let i = 0; i < this.questions.length; i++) {
+              const q = this.questions[i];
+              const selectedIndex = this.answersMap[i];
+              this.reviewAnswers.push({
+                question: q.question,
+                options: q.options || [],
+                correctIndex: q.correct_index,
+                selectedIndex: selectedIndex !== undefined ? selectedIndex : -1
+              });
+            }
+          }
+          
           this.showResultModal = true;
         }
       }, 1000);
@@ -586,13 +700,9 @@ export default {
       }
     },
 
-    // CLOSE RESULT - REDIRECT KE DASHBOARD
     closeResult() {
       this.showResultModal = false;
-      
-      // 🔥 REDIRECT KE DASHBOARD SISWA
       this.$router.push('/dashboard/siswa');
-      
       this.$emit('finish', {
         correct: this.correctCount,
         total: this.questions.length,
@@ -1297,4 +1407,4 @@ export default {
     font-size: 18px;
   }
 }
-</style>
+</style>  

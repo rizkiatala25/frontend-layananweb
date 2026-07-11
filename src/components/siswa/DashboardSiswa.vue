@@ -11,7 +11,7 @@
           <span class="search-icon">🔍</span>
           <input 
             type="text" 
-            placeholder="Find a quiz" 
+            placeholder="Find a quiz by title or subject..." 
             v-model="searchQuery"
             @input="filterQuizzes"
           />
@@ -107,28 +107,72 @@
         <!-- AVAILABLE QUIZZES -->
         <section class="section">
           <h2 class="section-title">Available Quizzes</h2>
+          
+          <!-- 🔥 TAMPILKAN FILTER SUBJECT -->
+          <div class="filter-container">
+            <div class="filter-buttons">
+              <button 
+                class="filter-btn" 
+                :class="{ active: selectedFilter === 'all' }"
+                @click="selectedFilter = 'all'"
+              >
+                📚 All
+              </button>
+              <button 
+                v-for="subject in availableSubjects" 
+                :key="subject"
+                class="filter-btn" 
+                :class="{ active: selectedFilter === subject }"
+                @click="selectedFilter = subject"
+              >
+                {{ getSubjectEmoji(subject) }} {{ subject }}
+              </button>
+            </div>
+            <span class="filter-count">{{ filteredQuizzes.length }} quiz ditemukan</span>
+          </div>
+
           <div class="card-grid">
+            <!-- QUIZ DEFAULT -->
             <div 
-              v-for="(quiz, index) in filteredQuizzes" 
-              :key="index" 
+              v-for="(quiz, index) in filteredDefaultQuizzes" 
+              :key="'default-' + index" 
               class="subject-card"
-              @click="openQuiz(quiz)"
+              @click="openQuiz(quiz, 'default')"
             >
               <div class="card-cover">
                 <img v-if="quiz.cover_image" :src="quiz.cover_image" alt="Cover" class="cover-image" />
                 <div v-else class="card-emoji">{{ quiz.emoji }}</div>
-                <span class="quiz-subject-badge">{{ quiz.subject || 'General' }}</span>
+                <span class="quiz-source-badge default">📚 Default</span>
               </div>
               <div class="card-body">
                 <span class="card-badge">{{ quiz.total_questions || quiz.questions?.length || 0 }} Qs</span>
                 <h3 class="card-title">{{ quiz.title }}</h3>
-                <span class="quiz-source" :class="quiz.source">
-                  {{ quiz.source === 'teacher' ? '👨‍🏫 Teacher' : '📚 Default' }}
-                </span>
+                <span class="quiz-subject">{{ quiz.subject || 'General' }}</span>
               </div>
             </div>
+
+            <!-- QUIZ DARI GURU -->
+            <div 
+              v-for="(quiz, index) in filteredTeacherQuizzes" 
+              :key="'teacher-' + index" 
+              class="subject-card"
+              @click="openQuiz(quiz, 'teacher')"
+            >
+              <div class="card-cover">
+                <img v-if="quiz.cover_image" :src="quiz.cover_image" alt="Cover" class="cover-image" />
+                <div v-else class="card-emoji">{{ quiz.emoji }}</div>
+                <span class="quiz-source-badge teacher">👨‍🏫 Teacher</span>
+              </div>
+              <div class="card-body">
+                <span class="card-badge">{{ quiz.total_questions || quiz.questions?.length || 0 }} Qs</span>
+                <h3 class="card-title">{{ quiz.title }}</h3>
+                <span class="quiz-subject">{{ quiz.subject || 'General' }}</span>
+              </div>
+            </div>
+
             <div v-if="filteredQuizzes.length === 0" class="empty-state">
-              <p>Tidak ada kuis yang ditemukan</p>
+              <p>📭 Tidak ada kuis yang ditemukan</p>
+              <p class="empty-sub">Coba cari dengan kata kunci lain atau cek kembali</p>
             </div>
           </div>
         </section>
@@ -188,6 +232,7 @@
       <div class="modal-card">
         <div class="modal-cover" :style="{ backgroundImage: selectedQuiz.cover_image ? `url(${selectedQuiz.cover_image})` : 'linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%)' }">
           <span class="modal-emoji" v-if="!selectedQuiz.cover_image">{{ selectedQuiz.emoji || '📝' }}</span>
+          <span class="quiz-type-badge" :class="selectedQuiz.source">{{ selectedQuiz.source === 'teacher' ? '👨‍🏫 Teacher' : '📚 Default' }}</span>
         </div>
         
         <div class="modal-body">
@@ -234,12 +279,13 @@ export default {
       currentTab: 'home',
       searchQuery: '',
       joinCode: '',
+      selectedFilter: 'all', // 🔥 FILTER SUBJECT
       studentName: 'Akmal Randa',
       selectedQuiz: null,
       showResultModal: false,
       selectedResult: null,
 
-      // 🔥 QUIZ DEFAULT DENGAN SOAL SESUAI MAPEL
+      // QUIZ DEFAULT
       defaultQuizzes: [
         { 
           id: 1, 
@@ -252,9 +298,9 @@ export default {
           duration: 10,
           source: 'default',
           questions: [
-            { question: 'Tanggal berapa Indonesia merdeka?', options: ['17 Agustus 1945', '17 Agustus 1946', '17 Agustus 1947', '17 Agustus 1944'], correct_index: 0 },
-            { question: 'Siapa proklamator Indonesia?', options: ['Soekarno-Hatta', 'Soeharto', 'Habibie', 'Megawati'], correct_index: 0 },
-            { question: 'Apa ibukota Indonesia?', options: ['Jakarta', 'Bandung', 'Surabaya', 'Medan'], correct_index: 0 }
+            { id: 101, question: 'Tanggal berapa Indonesia merdeka?', options: ['17 Agustus 1945', '17 Agustus 1946', '17 Agustus 1947', '17 Agustus 1944'], options_images: [], correct_index: 0, points: 1 },
+            { id: 102, question: 'Siapa proklamator Indonesia?', options: ['Soekarno-Hatta', 'Soeharto', 'Habibie', 'Megawati'], options_images: [], correct_index: 0, points: 1 },
+            { id: 103, question: 'Apa ibukota Indonesia?', options: ['Jakarta', 'Bandung', 'Surabaya', 'Medan'], options_images: [], correct_index: 0, points: 1 }
           ]
         },
         { 
@@ -268,9 +314,8 @@ export default {
           duration: 10,
           source: 'default',
           questions: [
-            { question: 'Apa ibukota Jepang?', options: ['Tokyo', 'Osaka', 'Nagoya', 'Kyoto'], correct_index: 0 },
-            { question: 'Benua apa yang terluas?', options: ['Asia', 'Afrika', 'Amerika', 'Eropa'], correct_index: 0 },
-            { question: 'Samudra terbesar di dunia?', options: ['Pasifik', 'Atlantik', 'Hindia', 'Arktik'], correct_index: 0 }
+            { id: 201, question: 'Apa ibukota Jepang?', options: ['Tokyo', 'Osaka', 'Nagoya', 'Kyoto'], options_images: [], correct_index: 0, points: 1 },
+            { id: 202, question: 'Benua apa yang terluas?', options: ['Asia', 'Afrika', 'Amerika', 'Europa'], options_images: [], correct_index: 0, points: 1 }
           ]
         },
         { 
@@ -284,9 +329,8 @@ export default {
           duration: 10,
           source: 'default',
           questions: [
-            { question: 'Berapa hasil 2 + 2?', options: ['3', '4', '5', '6'], correct_index: 1 },
-            { question: 'Berapa hasil 5 x 5?', options: ['20', '25', '30', '35'], correct_index: 1 },
-            { question: 'Berapa akar dari 144?', options: ['10', '11', '12', '13'], correct_index: 2 }
+            { id: 301, question: 'Berapa hasil 2 + 2?', options: ['3', '4', '5', '6'], options_images: [], correct_index: 1, points: 1 },
+            { id: 302, question: 'Berapa hasil 5 x 5?', options: ['20', '25', '30', '35'], options_images: [], correct_index: 1, points: 1 }
           ]
         },
         { 
@@ -300,9 +344,8 @@ export default {
           duration: 10,
           source: 'default',
           questions: [
-            { question: 'Planet terdekat dengan matahari?', options: ['Venus', 'Merkurius', 'Bumi', 'Mars'], correct_index: 1 },
-            { question: 'Apa yang membuat tumbuhan hijau?', options: ['Air', 'Klorofil', 'Tanah', 'Matahari'], correct_index: 1 },
-            { question: 'Hewan apa yang bisa terbang?', options: ['Kucing', 'Burung', 'Ikan', 'Ular'], correct_index: 1 }
+            { id: 401, question: 'Planet terdekat dengan matahari?', options: ['Venus', 'Merkurius', 'Bumi', 'Mars'], options_images: [], correct_index: 1, points: 1 },
+            { id: 402, question: 'Apa yang membuat tumbuhan hijau?', options: ['Air', 'Klorofil', 'Tanah', 'Matahari'], options_images: [], correct_index: 1, points: 1 }
           ]
         },
         { 
@@ -316,9 +359,8 @@ export default {
           duration: 10,
           source: 'default',
           questions: [
-            { question: 'Apa dasar negara Indonesia?', options: ['Pancasila', 'UUD 1945', 'Bhinneka Tunggal Ika', 'Sumpah Pemuda'], correct_index: 0 },
-            { question: 'Siapa presiden pertama Indonesia?', options: ['Soekarno', 'Soeharto', 'Habibie', 'Megawati'], correct_index: 0 },
-            { question: 'Kapan Indonesia merdeka?', options: ['17 Agustus 1945', '17 Agustus 1946', '17 Agustus 1947', '17 Agustus 1944'], correct_index: 0 }
+            { id: 501, question: 'Apa dasar negara Indonesia?', options: ['Pancasila', 'UUD 1945', 'Bhinneka Tunggal Ika', 'Sumpah Pemuda'], options_images: [], correct_index: 0, points: 1 },
+            { id: 502, question: 'Siapa presiden pertama Indonesia?', options: ['Soekarno', 'Soeharto', 'Habibie', 'Megawati'], options_images: [], correct_index: 0, points: 1 }
           ]
         },
         { 
@@ -332,9 +374,8 @@ export default {
           duration: 10,
           source: 'default',
           questions: [
-            { question: 'Apa sinonim dari "cantik"?', options: ['Indah', 'Jelek', 'Besar', 'Kecil'], correct_index: 0 },
-            { question: 'Apa antonim dari "besar"?', options: ['Tinggi', 'Pendek', 'Kecil', 'Lebar'], correct_index: 2 },
-            { question: 'Siapa pengarang novel "Laskar Pelangi"?', options: ['Andrea Hirata', 'Tere Liye', 'Pramoedya', 'Sutan Takdir'], correct_index: 0 }
+            { id: 601, question: 'Apa sinonim dari "cantik"?', options: ['Indah', 'Jelek', 'Besar', 'Kecil'], options_images: [], correct_index: 0, points: 1 },
+            { id: 602, question: 'Apa antonim dari "besar"?', options: ['Tinggi', 'Pendek', 'Kecil', 'Lebar'], options_images: [], correct_index: 2, points: 1 }
           ]
         },
         { 
@@ -348,9 +389,8 @@ export default {
           duration: 10,
           source: 'default',
           questions: [
-            { question: 'What is the meaning of "Cat"?', options: ['Kucing', 'Anjing', 'Burung', 'Ikan'], correct_index: 0 },
-            { question: 'What is the past tense of "Go"?', options: ['Goed', 'Went', 'Gone', 'Going'], correct_index: 1 },
-            { question: 'What is the opposite of "Hot"?', options: ['Warm', 'Cold', 'Cool', 'Sunny'], correct_index: 1 }
+            { id: 701, question: 'What is the meaning of "Cat"?', options: ['Kucing', 'Anjing', 'Burung', 'Ikan'], options_images: [], correct_index: 0, points: 1 },
+            { id: 702, question: 'What is the past tense of "Go"?', options: ['Goed', 'Went', 'Gone', 'Going'], options_images: [], correct_index: 1, points: 1 }
           ]
         }
       ],
@@ -373,19 +413,44 @@ export default {
         day: 'numeric' 
       });
     },
+    defaultQuizzesDisplay() {
+      return this.defaultQuizzes;
+    },
+    teacherQuizzesDisplay() {
+      return this.teacherQuizzes;
+    },
+    // 🔥 AMBIL SEMUA SUBJECT UNIK UNTUK FILTER
+    availableSubjects() {
+      const subjects = new Set();
+      this.defaultQuizzes.forEach(q => subjects.add(q.subject));
+      this.teacherQuizzes.forEach(q => subjects.add(q.subject));
+      return Array.from(subjects).filter(Boolean).sort();
+    },
+    // 🔥 FILTER BERDASARKAN SEARCH QUERY DAN SUBJECT
+    filteredDefaultQuizzes() {
+      return this.defaultQuizzes.filter(quiz => {
+        const matchSearch = !this.searchQuery || 
+          quiz.title.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          quiz.subject?.toLowerCase().includes(this.searchQuery.toLowerCase());
+        const matchFilter = this.selectedFilter === 'all' || quiz.subject === this.selectedFilter;
+        return matchSearch && matchFilter;
+      });
+    },
+    filteredTeacherQuizzes() {
+      return this.teacherQuizzes.filter(quiz => {
+        const matchSearch = !this.searchQuery || 
+          quiz.title.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          quiz.subject?.toLowerCase().includes(this.searchQuery.toLowerCase());
+        const matchFilter = this.selectedFilter === 'all' || quiz.subject === this.selectedFilter;
+        return matchSearch && matchFilter;
+      });
+    },
+    // 🔥 GABUNGAN UNTUK TOTAL
+    filteredQuizzes() {
+      return [...this.filteredDefaultQuizzes, ...this.filteredTeacherQuizzes];
+    },
     allQuizzes() {
       return [...this.defaultQuizzes, ...this.teacherQuizzes];
-    },
-    filteredQuizzes() {
-      if (!this.searchQuery.trim()) {
-        return this.allQuizzes;
-      }
-      const query = this.searchQuery.toLowerCase();
-      return this.allQuizzes.filter(quiz => 
-        quiz.title.toLowerCase().includes(query) ||
-        quiz.subject?.toLowerCase().includes(query) ||
-        (quiz.description && quiz.description.toLowerCase().includes(query))
-      );
     }
   },
   mounted() {
@@ -423,11 +488,19 @@ export default {
             emoji: q.emoji || '📝',
             cover_image: q.cover_image || null,
             description: q.description || 'Quiz from teacher',
-            duration: q.total_time || 10,
+            duration: q.duration || q.total_time || 10,
             source: 'teacher',
             join_code: q.join_code,
-            questions: q.questions || []
+            questions: q.questions ? q.questions.map(qq => ({
+              id: qq.id || Date.now(),
+              question: qq.question || 'No question',
+              options: Array.isArray(qq.options) ? qq.options : ['Option A', 'Option B', 'Option C', 'Option D'],
+              options_images: Array.isArray(qq.options_images) ? qq.options_images : [],
+              correct_index: qq.correct_index !== undefined ? qq.correct_index : 0,
+              points: qq.points || 1
+            })) : []
           }));
+          console.log('✅ Teacher quizzes loaded:', this.teacherQuizzes.length);
         }
       } catch (error) {
         console.error('Error loading teacher quizzes:', error);
@@ -448,7 +521,8 @@ export default {
         if (result.success) {
           alert(`✅ Berhasil join kuis: ${result.data.title}`);
           this.joinCode = '';
-          this.openQuiz({
+          
+          const newQuiz = {
             id: result.data.id,
             title: result.data.title,
             subject: result.data.subject || 'General',
@@ -456,10 +530,26 @@ export default {
             emoji: result.data.emoji || '📝',
             cover_image: result.data.cover_image || null,
             description: result.data.description || 'Quiz from teacher',
-            duration: result.data.total_time || 10,
+            duration: result.data.duration || result.data.total_time || 10,
             source: 'teacher',
-            questions: result.data.questions || []
-          });
+            join_code: result.data.join_code,
+            questions: result.data.questions ? result.data.questions.map(q => ({
+              id: q.id || Date.now(),
+              question: q.question || 'No question',
+              options: Array.isArray(q.options) ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
+              options_images: Array.isArray(q.options_images) ? q.options_images : [],
+              correct_index: q.correct_index !== undefined ? q.correct_index : 0,
+              points: q.points || 1
+            })) : []
+          };
+          
+          const exists = this.teacherQuizzes.some(q => q.id === newQuiz.id);
+          if (!exists) {
+            this.teacherQuizzes.push(newQuiz);
+            this.saveToStorage();
+          }
+          
+          this.openQuiz(newQuiz, 'teacher');
         } else {
           alert('❌ ' + result.message);
         }
@@ -470,18 +560,44 @@ export default {
     },
 
     // ===== OPEN QUIZ DETAIL =====
-    openQuiz(quiz) {
+    openQuiz(quiz, source = 'default') {
+      const isTeacher = source === 'teacher' || quiz.source === 'teacher';
+      
+      let questions = [];
+      if (isTeacher) {
+        questions = quiz.questions ? quiz.questions.map(q => ({
+          id: q.id || Date.now(),
+          question: q.question || 'No question',
+          options: Array.isArray(q.options) ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
+          question_image: q.question_image || null,
+          options_images: Array.isArray(q.options_images) ? q.options_images : [],
+          correct_index: q.correct_index !== undefined ? q.correct_index : 0,
+          points: q.points || 1
+        })) : [];
+      } else {
+        const defaultQuiz = this.defaultQuizzes.find(q => q.id === quiz.id);
+        questions = defaultQuiz?.questions ? defaultQuiz.questions.map(q => ({
+          id: q.id || Date.now(),
+          question: q.question || 'No question',
+          options: Array.isArray(q.options) ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
+          question_image: q.question_image || null,
+          options_images: q.options_images || [],
+          correct_index: q.correct_index !== undefined ? q.correct_index : 0,
+          points: q.points || 1
+        })) : [];
+      }
+      
       this.selectedQuiz = {
         id: quiz.id,
         title: quiz.title,
         subject: quiz.subject || 'General',
         description: quiz.description || 'Test your knowledge!',
-        total_questions: quiz.total_questions || quiz.questions?.length || 0,
+        total_questions: quiz.total_questions || questions.length || 0,
         duration: quiz.duration || 10,
         emoji: quiz.emoji || '📝',
         cover_image: quiz.cover_image || null,
-        questions: quiz.questions || [],
-        source: quiz.source || 'default'
+        questions: questions,
+        source: isTeacher ? 'teacher' : 'default'
       };
     },
 
@@ -490,7 +606,11 @@ export default {
       if (!this.selectedQuiz) return;
       
       const quiz = this.selectedQuiz;
+      const quizId = quiz.id;
       
+      console.log('📌 Starting quiz with ID:', quizId);
+      
+      localStorage.setItem('current_quiz_id', String(quizId));
       localStorage.setItem('current_quiz_title', quiz.title);
       localStorage.setItem('current_quiz_duration', quiz.duration || 10);
       localStorage.setItem('current_quiz_cover', quiz.cover_image || '');
@@ -500,15 +620,15 @@ export default {
         id: q.id || Date.now(),
         question: q.question || 'No question',
         question_image: q.question_image || null,
-        options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-        options_images: q.options_images || [],
+        options: Array.isArray(q.options) ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
+        options_images: Array.isArray(q.options_images) ? q.options_images : [],
         correct_index: q.correct_index || 0,
         points: q.points || 1
       })) || [];
       
       localStorage.setItem('current_quiz_questions', JSON.stringify(questions));
       
-      this.$emit('start-quiz', quiz.id);
+      this.$emit('start-quiz', quizId);
       this.selectedQuiz = null;
     },
 
@@ -624,7 +744,25 @@ export default {
     },
 
     filterQuizzes() {
-      // Handled by computed
+      // 🔥 FILTER DI HANDLE OLEH COMPUTED PROPERTY
+      console.log('🔍 Searching for:', this.searchQuery);
+    },
+
+    // 🔥 GET EMOJI UNTUK SUBJECT
+    getSubjectEmoji(subject) {
+      const emojis = {
+        'Matematika': '📐',
+        'Bahasa Indonesia': '🇮🇩',
+        'Bahasa Inggris': '🇬🇧',
+        'IPA': '🔬',
+        'IPS': '🌍',
+        'Sejarah': '📜',
+        'PKN': '🦅',
+        'Seni Budaya': '🎭',
+        'Agama': '📖',
+        'Penjaskes': '⚽'
+      };
+      return emojis[subject] || '📚';
     },
 
     // ===== LOGOUT =====
@@ -638,7 +776,7 @@ export default {
 </script>
 
 <style scoped>
-/* STYLE SAMA SEPERTI SEBELUMNYA */
+/* ... style sama seperti sebelumnya dengan tambahan filter ... */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 .student-dashboard {
@@ -647,7 +785,6 @@ export default {
   font-family: 'Poppins', sans-serif;
 }
 
-/* ===== NAVBAR ===== */
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -703,7 +840,7 @@ export default {
   font-size: 13px;
   font-family: 'Poppins', sans-serif;
   color: #334155;
-  width: 200px;
+  width: 250px;
   background: transparent;
 }
 
@@ -800,7 +937,6 @@ export default {
   opacity: 1;
 }
 
-/* ===== MAIN CONTENT ===== */
 .main-content {
   max-width: 1200px;
   margin: 0 auto;
@@ -901,7 +1037,6 @@ export default {
   justify-content: center;
 }
 
-/* ===== SECTION ===== */
 .section {
   margin-bottom: 36px;
 }
@@ -913,14 +1048,61 @@ export default {
   margin-bottom: 18px;
 }
 
-/* ===== CARD GRID ===== */
+/* 🔥 FILTER CONTAINER */
+.filter-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #f1f5f9;
+}
+
+.filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-btn {
+  padding: 6px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: white;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+  color: #64748b;
+}
+
+.filter-btn:hover {
+  border-color: #7468f3;
+  color: #7468f3;
+}
+
+.filter-btn.active {
+  background: #7468f3;
+  border-color: #7468f3;
+  color: white;
+}
+
+.filter-count {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 18px;
 }
 
-/* ===== ACTIVITY CARD ===== */
 .activity-card {
   background: white;
   border-radius: 12px;
@@ -993,7 +1175,6 @@ export default {
   background: #f87171;
 }
 
-/* ===== SUBJECT CARD ===== */
 .subject-card {
   background: white;
   border-radius: 12px;
@@ -1029,16 +1210,23 @@ export default {
   font-size: 48px;
 }
 
-.quiz-subject-badge {
+.quiz-source-badge {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
   padding: 2px 10px;
   border-radius: 12px;
   font-size: 10px;
   font-weight: 500;
+  color: white;
+}
+
+.quiz-source-badge.default {
+  background: rgba(108, 92, 231, 0.8);
+}
+
+.quiz-source-badge.teacher {
+  background: rgba(239, 68, 68, 0.8);
 }
 
 .subject-card .card-body {
@@ -1059,24 +1247,12 @@ export default {
   text-transform: capitalize;
 }
 
-.quiz-source {
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  display: inline-block;
+.subject-card .quiz-subject {
+  font-size: 11px;
+  color: #6c5ce7;
+  font-weight: 500;
 }
 
-.quiz-source.default {
-  background: #e2e8f0;
-  color: #64748b;
-}
-
-.quiz-source.teacher {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-/* ===== EMPTY STATE ===== */
 .empty-state {
   grid-column: 1 / -1;
   text-align: center;
@@ -1088,7 +1264,12 @@ export default {
   font-size: 14px;
 }
 
-/* ===== ACTIVITY PAGE ===== */
+.empty-sub {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-top: 4px;
+}
+
 .activity-page {
   padding: 10px 0;
 }
@@ -1235,7 +1416,6 @@ export default {
   background: #fecaca;
 }
 
-/* ===== MODAL ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1284,11 +1464,31 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .modal-emoji {
   font-size: 56px;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+}
+
+.quiz-type-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: white;
+}
+
+.quiz-type-badge.default {
+  background: rgba(108, 92, 231, 0.8);
+}
+
+.quiz-type-badge.teacher {
+  background: rgba(239, 68, 68, 0.8);
 }
 
 .modal-body {
@@ -1348,7 +1548,6 @@ export default {
   box-shadow: 0 4px 16px rgba(108, 92, 231, 0.3);
 }
 
-/* ===== RESULT MODAL ===== */
 .result-modal {
   padding: 32px 28px 28px;
   text-align: center;
@@ -1403,7 +1602,6 @@ export default {
   background: #5a4bd1;
 }
 
-/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .navbar {
     padding: 10px 16px;
@@ -1418,7 +1616,7 @@ export default {
   }
 
   .search-box input {
-    width: 120px;
+    width: 140px;
   }
 
   .top-row {
@@ -1450,6 +1648,19 @@ export default {
 
   .activity-result {
     margin-left: auto;
+  }
+
+  .filter-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-buttons {
+    justify-content: center;
+  }
+
+  .filter-count {
+    text-align: center;
   }
 }
 </style>

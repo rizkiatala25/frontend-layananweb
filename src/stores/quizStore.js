@@ -243,7 +243,7 @@ export const useQuizStore = defineStore('quiz', {
       }
     },
 
-    // ===== TEACHER: FETCH QUIZ RESULTS (NILAI SISWA) =====
+    // ===== TEACHER: FETCH QUIZ RESULTS =====
     async fetchQuizResults(quizId) {
       this.loading = true;
       this.error = null;
@@ -286,7 +286,7 @@ export const useQuizStore = defineStore('quiz', {
       }
     },
 
-    // ===== STUDENT: GET QUIZ DETAIL (DENGAN KONVERSI DATA) =====
+    // ===== STUDENT: GET QUIZ DETAIL =====
     async fetchQuizDetail(id) {
       this.loading = true;
       this.error = null;
@@ -298,7 +298,6 @@ export const useQuizStore = defineStore('quiz', {
         if (response.success) {
           const data = response.data;
           
-          // 🔥 PASTIKAN DATA FORMATNYA BENAR
           if (data.questions) {
             data.questions = data.questions.map(q => ({
               id: q.id || Date.now(),
@@ -396,14 +395,49 @@ export const useQuizStore = defineStore('quiz', {
       }
     },
 
-    // ===== STUDENT: SUBMIT QUIZ (SEMUA JAWABAN) =====
+    // ===== STUDENT: SUBMIT QUIZ (SEMUA JAWABAN) - UPDATED =====
     async submitQuiz(quizId, answers) {
       this.loading = true;
       this.error = null;
       
       try {
-        console.log('📤 Submitting quiz:', quizId, answers);
-        const response = await quizApi.submitAnswer(quizId, { answers });
+        console.log('📤 Submitting quiz in store:', quizId);
+        console.log('📤 Answers count:', answers?.length || 0);
+        
+        // 🔥 VALIDASI QUIZ ID - LEBIH FLEKSIBEL
+        if (!quizId) {
+          console.warn('⚠️ Quiz ID is undefined or null, using fallback');
+          return { 
+            success: false, 
+            message: 'Quiz ID tidak valid',
+            fallback: true 
+          };
+        }
+        
+        if (!answers || answers.length === 0) {
+          return { 
+            success: false, 
+            message: 'Tidak ada jawaban yang dikirim',
+            fallback: true 
+          };
+        }
+        
+        // 🔥 KONVERSI QUIZ ID KE NUMBER
+        const numericId = Number(quizId);
+        
+        // 🔥 CEK APAKAH ID VALID (bukan default quiz)
+        if (isNaN(numericId) || numericId <= 0 || quizId === 'default' || quizId < 1000) {
+          console.warn('⚠️ Quiz ID is default or invalid, skipping backend submit');
+          return { 
+            success: false, 
+            message: 'Quiz tidak ditemukan di database (default quiz)',
+            fallback: true,
+            isDefault: true
+          };
+        }
+        
+        // 🔥 KIRIM KE BACKEND HANYA JIKA ID VALID
+        const response = await quizApi.submitAnswer(numericId, { answers });
         console.log('✅ Submit response:', response);
         
         if (response.success) {
@@ -411,11 +445,32 @@ export const useQuizStore = defineStore('quiz', {
           this.isQuizActive = false;
           return { success: true, data: response.data };
         }
-        return { success: false, message: response.message || 'Gagal submit quiz' };
+        
+        return { 
+          success: false, 
+          message: response.message || 'Gagal submit quiz',
+          fallback: true 
+        };
+        
       } catch (error) {
-        console.error('Submit quiz error:', error);
-        this.error = error.response?.data?.message || error.message || 'Gagal submit quiz';
-        return { success: false, message: this.error };
+        console.error('❌ Submit quiz error:', error);
+        console.error('❌ Error details:', error.response?.data);
+        
+        let message = 'Gagal submit quiz';
+        if (error.response?.data?.message) {
+          message = error.response.data.message;
+        } else if (error.message) {
+          message = error.message;
+        }
+        
+        this.error = message;
+        
+        // 🔥 KEMBALIKAN FALLBACK TRUE AGAR FRONTEND TAHU UNTUK SIMPAN KE LOCALSTORAGE
+        return { 
+          success: false, 
+          message,
+          fallback: true 
+        };
       } finally {
         this.loading = false;
       }
